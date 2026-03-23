@@ -180,9 +180,9 @@ export default function ContentWriterDashboard({ user }) {
       ['content_pending', 'todo', 'in_progress'].includes(t.status)
     ).length;
 
-    // Under Review = submitted to tester for review
+    // Under Review = submitted to tester OR approved by tester (waiting for marketer)
     const reviewContent = taskList.filter(t =>
-      t.status === 'content_submitted'
+      ['content_submitted', 'content_approved', 'approved_by_tester'].includes(t.status)
     ).length;
 
     // Rejected = needs revision
@@ -190,9 +190,9 @@ export default function ContentWriterDashboard({ user }) {
       t.status === 'content_rejected'
     ).length;
 
-    // Completed = approved by tester/marketer (writer's work is fully done)
+    // Completed = final approval by marketer (writer's work is fully done)
     const completedContent = taskList.filter(t =>
-      ['content_final_approved', 'final_approved', 'content_approved', 'approved_by_tester'].includes(t.status)
+      ['content_final_approved', 'final_approved'].includes(t.status)
     ).length;
 
     setStats({
@@ -239,11 +239,12 @@ export default function ContentWriterDashboard({ user }) {
       projectTaskCount[projectId].total++;
 
       // Categorize by status - from writer's perspective
-      if (['content_final_approved', 'final_approved', 'content_approved', 'approved_by_tester'].includes(task.status)) {
-        // Approved by tester/marketer - writer's work is fully complete
+      // Workflow: content_pending → content_submitted → content_approved (tester approved) → final_approved (marketer approved)
+      if (['content_final_approved', 'final_approved'].includes(task.status)) {
+        // Final approval by marketer - writer's work is complete
         projectTaskCount[projectId].completed++;
-      } else if (task.status === 'content_submitted') {
-        // Under review by tester
+      } else if (['content_submitted', 'content_approved', 'approved_by_tester'].includes(task.status)) {
+        // Under review: content_submitted = tester reviewing, content_approved = marketer reviewing
         projectTaskCount[projectId].review++;
       } else if (task.status === 'content_rejected') {
         // Needs revision

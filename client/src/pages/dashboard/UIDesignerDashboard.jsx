@@ -170,14 +170,16 @@ export default function UIDesignerDashboard({ user }) {
       ['design_pending', 'todo', 'in_progress'].includes(t.status)
     ).length;
 
-    // Tasks submitted for review (In Review)
+    // Tasks under review:
+    // - design_submitted = waiting for tester review
+    // - design_approved = tester approved, waiting for marketer final approval
     const reviewDesigns = taskList.filter(t =>
-      t.status === 'design_submitted'
+      ['design_submitted', 'design_approved'].includes(t.status)
     ).length;
 
-    // Tasks approved (by tester or marketer)
+    // Tasks fully approved (final approval by performance marketer)
     const approvedDesigns = taskList.filter(t =>
-      ['design_approved', 'final_approved'].includes(t.status)
+      t.status === 'final_approved'
     ).length;
 
     // Tasks rejected
@@ -229,11 +231,12 @@ export default function UIDesignerDashboard({ user }) {
       projectTaskCount[projectId].total++;
 
       // Categorize by status - from designer's perspective
-      if (['design_approved', 'final_approved'].includes(task.status)) {
-        // Approved by tester/marketer - designer's work is complete
+      // Workflow: design_pending → design_submitted → design_approved (tester approved) → final_approved (marketer approved)
+      if (task.status === 'final_approved') {
+        // Final approval by marketer - designer's work is complete
         projectTaskCount[projectId].approved++;
-      } else if (task.status === 'design_submitted') {
-        // Under review by tester
+      } else if (['design_submitted', 'design_approved'].includes(task.status)) {
+        // Under review: design_submitted = tester reviewing, design_approved = marketer reviewing
         projectTaskCount[projectId].review++;
       } else if (['design_rejected', 'rejected'].includes(task.status)) {
         // Needs revision

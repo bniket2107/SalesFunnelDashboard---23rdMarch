@@ -168,14 +168,16 @@ export default function DeveloperDashboard({ user }) {
       ['development_pending', 'todo', 'in_progress'].includes(t.status)
     ).length;
 
-    // Tasks submitted for review (In Review)
+    // Tasks under review:
+    // - development_submitted = waiting for tester review
+    // - development_approved = tester approved, waiting for marketer final approval
     const reviewTasks = taskList.filter(t =>
-      t.status === 'development_submitted'
+      ['development_submitted', 'development_approved'].includes(t.status)
     ).length;
 
-    // Tasks approved (by tester or marketer)
+    // Tasks fully approved (final approval by performance marketer)
     const approvedTasks = taskList.filter(t =>
-      ['development_approved', 'final_approved'].includes(t.status)
+      t.status === 'final_approved'
     ).length;
 
     // Tasks rejected
@@ -227,11 +229,12 @@ export default function DeveloperDashboard({ user }) {
       projectTaskCount[projectId].total++;
 
       // Categorize by status - from developer's perspective
-      if (['development_approved', 'final_approved'].includes(task.status)) {
-        // Approved by tester/marketer - developer's work is complete
+      // Workflow: development_pending → development_submitted → development_approved (tester approved) → final_approved (marketer approved)
+      if (task.status === 'final_approved') {
+        // Final approval by marketer - developer's work is complete
         projectTaskCount[projectId].approved++;
-      } else if (task.status === 'development_submitted') {
-        // Under review by tester
+      } else if (['development_submitted', 'development_approved'].includes(task.status)) {
+        // Under review: development_submitted = tester reviewing, development_approved = marketer reviewing
         projectTaskCount[projectId].review++;
       } else if (task.status === 'rejected') {
         // Needs revision
