@@ -264,41 +264,61 @@ export default function TrafficStrategyPage() {
 
       {/* Traffic Channels */}
       <Card>
-        <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">Traffic Channels</h2>
-          <p className="text-sm text-gray-500">Select the channels you'll use to drive traffic</p>
-        </CardHeader>
-        <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {channels.map((channel) => (
-              <div
-                key={channel.id}
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  channel.isSelected
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => toggleChannel(channel.id)}
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-2xl">{channel.icon}</span>
-                  <span className="font-medium">{channel.label}</span>
-                </div>
-                {channel.isSelected && (
-                  <Textarea
-                    placeholder="Why this channel?"
-                    rows={2}
-                    value={channel.justification}
-                    onChange={(e) => updateJustification(channel.id, e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-2"
-                  />
-                )}
-              </div>
-            ))}
+  <CardHeader>
+    <div className="flex items-center justify-between">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">Traffic Channels</h2>
+        <p className="text-sm text-gray-500">Select the channels you'll use to drive traffic</p>
+      </div>
+      <button
+        onClick={() => {
+          const allSelected = channels.every((c) => c.isSelected);
+          setChannels((prev) =>
+            prev.map((c) => ({ ...c, isSelected: !allSelected }))
+          );
+        }}
+        className={`text-sm font-medium px-3 py-1.5 rounded-lg border transition-all ${
+          channels.every((c) => c.isSelected)
+            ? 'border-primary-500 text-primary-600 bg-primary-50 hover:bg-primary-100'
+            : 'border-gray-300 text-gray-600 bg-white hover:bg-gray-50'
+        }`}
+      >
+        {channels.every((c) => c.isSelected) ? '✓ Deselect All' : 'Select All'}
+      </button>
+    </div>
+  </CardHeader>
+
+  <CardBody>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {channels.map((channel) => (
+        <div
+          key={channel.id}
+          className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+            channel.isSelected
+              ? 'border-primary-500 bg-primary-50'
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+          onClick={() => toggleChannel(channel.id)}
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-2xl">{channel.icon}</span>
+            <span className="font-medium">{channel.label}</span>
           </div>
-        </CardBody>
-      </Card>
+          {channel.isSelected && (
+            <Textarea
+              placeholder="Why this channel?"
+              rows={2}
+              value={channel.justification}
+              onChange={(e) => updateJustification(channel.id, e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-2"
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  </CardBody>
+</Card>
 
       {/* Hooks */}
       <Card>
@@ -370,20 +390,21 @@ export default function TrafficStrategyPage() {
           <h2 className="text-lg font-semibold text-gray-900">Total Budget</h2>
           <p className="text-sm text-gray-500">Set your overall traffic budget</p>
         </CardHeader>
-        <CardBody>
-          <div className="max-w-xs">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
-                className="pl-8"
-              />
-            </div>
-          </div>
-        </CardBody>
+       <CardBody>
+  <div className="max-w-xs">
+    <div className="relative">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+      <Input
+        type="number"
+        min={0}
+        placeholder="0.00"
+        value={budget}
+        onChange={(e) => setBudget(Math.max(0, Number(e.target.value)))}
+        className="pl-8"
+      />
+    </div>
+  </div>
+</CardBody>
       </Card>
 
       {/* Actions */}

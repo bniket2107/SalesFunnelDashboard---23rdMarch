@@ -482,16 +482,7 @@ export default function TasksPage() {
                       <Eye className="w-4 h-4 mr-1" />
                       View
                     </Button>
-                    {canStartTask(task) && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleStatusUpdate(task._id, 'in_progress')}
-                      >
-                        <Play className="w-4 h-4 mr-1" />
-                        Start Task
-                      </Button>
-                    )}
+                    
                     {task.status === 'in_progress' && (
                       <Button
                         size="sm"

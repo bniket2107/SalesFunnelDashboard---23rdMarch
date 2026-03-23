@@ -901,7 +901,7 @@ export default function OfferEngineeringPage() {
         </Card>
 
         {/* Pricing Strategy */}
-        <Card>
+        {/* <Card>
           <CardHeader>
             <h2 className="text-lg font-semibold text-gray-900">Pricing Strategy</h2>
             <p className="text-sm text-gray-500">Set your pricing and upsell options</p>
@@ -955,7 +955,7 @@ export default function OfferEngineeringPage() {
               </div>
             </div>
           </CardBody>
-        </Card>
+        </Card> */}
 
         {/* Actions */}
         <div className="flex justify-end gap-4">
