@@ -237,4 +237,14 @@ export const strategySummaryService = {
   getTaskContext: (projectId) => api.get(`/projects/${projectId}/strategy-summary/context`),
 };
 
+// Client service
+export const clientService = {
+  getClients: (params) => api.get('/clients', { params }),
+  getClient: (id) => api.get(`/clients/${id}`),
+  createClient: (data) => api.post('/clients', data),
+  updateClient: (id, data) => api.put(`/clients/${id}`, data),
+  deleteClient: (id) => api.delete(`/clients/${id}`),
+  searchClients: (query) => api.get('/clients/search', { params: { q: query } }),
+};
+
 export default api;

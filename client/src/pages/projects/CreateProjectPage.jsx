@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { projectService } from '@/services/api';
+import { projectService, clientService } from '@/services/api';
 import { Card, CardBody, CardHeader, Button, Input } from '@/components/ui';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Search, User, Building, Mail, Phone, X, Loader2 } from 'lucide-react';
 
 const projectSchema = z.object({
   projectName: z.string().min(2, 'Project name must be at least 2 characters').optional().or(z.literal('')),
@@ -23,11 +23,18 @@ const projectSchema = z.object({
 
 export default function CreateProjectPage() {
   const [loading, setLoading] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef(null);
   const navigate = useNavigate();
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(projectSchema),
@@ -44,6 +51,66 @@ export default function CreateProjectPage() {
       timelineEndDate: '',
     },
   });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Search clients
+  useEffect(() => {
+    const searchClients = async () => {
+      if (clientSearch.length < 2) {
+        setClients([]);
+        return;
+      }
+
+      try {
+        setSearchLoading(true);
+        const response = await clientService.searchClients(clientSearch);
+        setClients(response.data || []);
+        setShowDropdown(true);
+      } catch (error) {
+        console.error('Error searching clients:', error);
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchClients, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [clientSearch]);
+
+  const handleSelectClient = (client) => {
+    setSelectedClient(client);
+    setClientSearch('');
+    setShowDropdown(false);
+    setClients([]);
+
+    // Prefill form with client data
+    setValue('customerName', client.customerName || '');
+    setValue('businessName', client.businessName || '');
+    setValue('email', client.email || '');
+    setValue('mobile', client.mobile || '');
+    if (client.industry) setValue('industry', client.industry);
+    if (client.description) setValue('description', client.description);
+  };
+
+  const handleClearClient = () => {
+    setSelectedClient(null);
+    setValue('customerName', '');
+    setValue('businessName', '');
+    setValue('email', '');
+    setValue('mobile', '');
+    setValue('industry', '');
+    setValue('description', '');
+  };
 
   const onSubmit = async (data) => {
     try {
@@ -64,6 +131,11 @@ export default function CreateProjectPage() {
           endDate: data.timelineEndDate ? new Date(data.timelineEndDate) : undefined,
         } : undefined,
       };
+
+      // Add client reference if selected
+      if (selectedClient) {
+        projectData.client = selectedClient._id;
+      }
 
       const response = await projectService.createProject(projectData);
       toast.success('Project created successfully!');
@@ -94,6 +166,94 @@ export default function CreateProjectPage() {
           </p>
         </div>
       </div>
+
+      {/* Client Selection */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-lg font-semibold text-gray-900">Select Client (Optional)</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Search and select an existing client to auto-fill their details.
+          </p>
+        </CardHeader>
+        <CardBody className="pt-2">
+          {selectedClient ? (
+            <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                    <Building className="w-5 h-5 text-primary-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{selectedClient.customerName}</h3>
+                    <p className="text-sm text-gray-600">{selectedClient.businessName}</p>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Mail className="w-3.5 h-3.5" />
+                        {selectedClient.email}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3.5 h-3.5" />
+                        {selectedClient.mobile}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleClearClient}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="relative" ref={searchRef}>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search clients by name, business, or email..."
+                value={clientSearch}
+                onChange={(e) => setClientSearch(e.target.value)}
+                onFocus={() => clients.length > 0 && setShowDropdown(true)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+              />
+              {searchLoading && (
+                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
+              )}
+
+              {/* Search Results Dropdown */}
+              {showDropdown && clients.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {clients.map((client) => (
+                    <button
+                      key={client._id}
+                      type="button"
+                      onClick={() => handleSelectClient(client)}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                          <User className="w-4 h-4 text-gray-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{client.customerName}</p>
+                          <p className="text-sm text-gray-500">{client.businessName} • {client.email}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {showDropdown && clientSearch.length >= 2 && !searchLoading && clients.length === 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-center text-gray-500">
+                  No clients found. Enter details manually below.
+                </div>
+              )}
+            </div>
+          )}
+        </CardBody>
+      </Card>
 
       {/* Form */}
       <Card>
@@ -176,6 +336,7 @@ export default function CreateProjectPage() {
                 <Input
                   label="Budget ($)"
                   type="number"
+                  min={0}
                   placeholder="5000"
                   error={errors.budget?.message}
                   {...register('budget')}

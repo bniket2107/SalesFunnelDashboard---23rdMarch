@@ -23,6 +23,10 @@ const stageSchema = new mongoose.Schema({
 }, { _id: false });
 
 const projectSchema = new mongoose.Schema({
+  client: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Client'
+  },
   projectName: {
     type: String,
     trim: true,

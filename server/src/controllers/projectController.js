@@ -104,6 +104,7 @@ exports.getProjects = async (req, res, next) => {
 
     const projects = await Project.find(query)
       .populate('createdBy', 'name email')
+      .populate('client', 'customerName businessName email mobile industry')
       // New array fields
       .populate('assignedTeam.performanceMarketers', 'name email specialization avatar')
       .populate('assignedTeam.contentWriters', 'name email specialization avatar')
@@ -161,6 +162,7 @@ exports.getProject = async (req, res, next) => {
 
     const project = await Project.findById(req.params.id)
       .populate('createdBy', 'name email')
+      .populate('client', 'customerName businessName email mobile industry')
       // New array fields
       .populate('assignedTeam.performanceMarketers', 'name email specialization avatar')
       .populate('assignedTeam.contentWriters', 'name email specialization avatar')
@@ -257,11 +259,13 @@ exports.createProject = async (req, res, next) => {
       industry,
       description,
       budget,
-      timeline
+      timeline,
+      client
     } = req.body;
 
     // Create project with default stages
     const project = await Project.create({
+      client,
       projectName,
       customerName,
       businessName,
