@@ -23,6 +23,7 @@ const notificationSchema = new mongoose.Schema({
       'task_approved_by_marketer',
       'task_rejected',
       'task_revision_requested',
+      'design_approved_for_development',
       // Content workflow notifications
       'content_final_approved',
       'content_approved'
