@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { projectService, taskService } from '@/services/api';
 import { Card, CardBody, Badge, Spinner, Button } from '@/components/ui';
 import {
-  Code,
+  Palette,
   FolderKanban,
   Clock,
   Send,
@@ -14,6 +14,7 @@ import {
   ArrowDownRight,
   Eye,
   Upload,
+  Edit,
   ChevronRight,
   PieChart as PieChartIcon,
   BarChart3,
@@ -30,6 +31,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import { STATUS_CONFIG, getStatusConfig, CHART_COLORS } from '@/constants/taskStatuses';
@@ -82,14 +84,14 @@ function TaskCard({ task, onClick }) {
             <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor}`}>
               {statusConfig.label}
             </Badge>
-            {task.taskType && (
+            {task.creativeType && (
               <Badge variant="outline" className="text-xs">
-                {task.taskType.replace(/_/g, ' ')}
+                {task.creativeType}
               </Badge>
             )}
           </div>
           <h3 className="font-semibold text-gray-900 truncate">
-            {task.taskTitle || 'Development Task'}
+            {task.creativeName || task.taskTitle || 'Design Task'}
           </h3>
           <p className="text-sm text-gray-500 truncate">
             {task.projectId?.projectName || task.projectId?.businessName || 'Unknown Project'}
@@ -98,7 +100,7 @@ function TaskCard({ task, onClick }) {
       </div>
 
       {/* Show rejection reason if rejected */}
-      {['rejected'].includes(task.status) && task.rejectionNote && (
+      {['design_rejected', 'rejected'].includes(task.status) && task.rejectionNote && (
         <div className="mb-3 p-2 bg-red-50 rounded-lg border border-red-200">
           <p className="text-xs text-red-700 line-clamp-2">
             <span className="font-medium">Rejection Reason:</span> {task.rejectionNote}
@@ -119,7 +121,7 @@ function TaskCard({ task, onClick }) {
   );
 }
 
-export default function DeveloperDashboard({ user }) {
+export default function UIDesignerDashboard({ user }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -127,10 +129,10 @@ export default function DeveloperDashboard({ user }) {
   const [projects, setProjects] = useState([]);
   const [stats, setStats] = useState({
     totalTasks: 0,
-    pendingTasks: 0,
-    reviewTasks: 0,
-    approvedTasks: 0,
-    rejectedTasks: 0,
+    pendingDesigns: 0,
+    reviewDesigns: 0,
+    approvedDesigns: 0,
+    rejectedDesigns: 0,
   });
 
   useEffect(() => {
@@ -163,42 +165,42 @@ export default function DeveloperDashboard({ user }) {
   };
 
   const calculateStats = (taskList) => {
-    // Tasks waiting for developer to start
-    const pendingTasks = taskList.filter(t =>
-      ['development_pending', 'todo', 'in_progress'].includes(t.status)
+    // Tasks waiting for designer to start (design_pending, todo, in_progress)
+    const pendingDesigns = taskList.filter(t =>
+      ['design_pending', 'todo', 'in_progress'].includes(t.status)
     ).length;
 
     // Tasks submitted for review (In Review)
-    const reviewTasks = taskList.filter(t =>
-      t.status === 'development_submitted'
+    const reviewDesigns = taskList.filter(t =>
+      t.status === 'design_submitted'
     ).length;
 
     // Tasks approved (by tester or marketer)
-    const approvedTasks = taskList.filter(t =>
-      ['development_approved', 'final_approved'].includes(t.status)
+    const approvedDesigns = taskList.filter(t =>
+      ['design_approved', 'final_approved'].includes(t.status)
     ).length;
 
     // Tasks rejected
-    const rejectedTasks = taskList.filter(t =>
-      t.status === 'rejected'
+    const rejectedDesigns = taskList.filter(t =>
+      ['design_rejected', 'rejected'].includes(t.status)
     ).length;
 
     setStats({
       totalTasks: taskList.length,
-      pendingTasks,
-      reviewTasks,
-      approvedTasks,
-      rejectedTasks,
+      pendingDesigns,
+      reviewDesigns,
+      approvedDesigns,
+      rejectedDesigns,
     });
   };
 
   // Prepare pie chart data for task status distribution (Pending, Review, Approved, Rejected)
   const getTaskStatusData = () => {
     const data = [
-      { name: 'Pending', value: stats.pendingTasks, color: CHART_COLORS.pending },
-      { name: 'Review', value: stats.reviewTasks, color: CHART_COLORS.review },
-      { name: 'Approved', value: stats.approvedTasks, color: CHART_COLORS.approved },
-      { name: 'Rejected', value: stats.rejectedTasks, color: CHART_COLORS.rejected },
+      { name: 'Pending', value: stats.pendingDesigns, color: CHART_COLORS.pending },
+      { name: 'Review', value: stats.reviewDesigns, color: CHART_COLORS.review },
+      { name: 'Approved', value: stats.approvedDesigns, color: CHART_COLORS.approved },
+      { name: 'Rejected', value: stats.rejectedDesigns, color: CHART_COLORS.rejected },
     ];
     return data.filter(item => item.value > 0);
   };
@@ -226,18 +228,18 @@ export default function DeveloperDashboard({ user }) {
 
       projectTaskCount[projectId].total++;
 
-      // Categorize by status - from developer's perspective
-      if (['development_approved', 'final_approved'].includes(task.status)) {
-        // Approved by tester/marketer - developer's work is complete
+      // Categorize by status - from designer's perspective
+      if (['design_approved', 'final_approved'].includes(task.status)) {
+        // Approved by tester/marketer - designer's work is complete
         projectTaskCount[projectId].approved++;
-      } else if (task.status === 'development_submitted') {
+      } else if (task.status === 'design_submitted') {
         // Under review by tester
         projectTaskCount[projectId].review++;
-      } else if (task.status === 'rejected') {
+      } else if (['design_rejected', 'rejected'].includes(task.status)) {
         // Needs revision
         projectTaskCount[projectId].rejected++;
       } else {
-        // development_pending, todo, in_progress, or other statuses - needs development
+        // design_pending, todo, in_progress, or other statuses - needs to be designed
         projectTaskCount[projectId].pending++;
       }
     });
@@ -263,11 +265,11 @@ export default function DeveloperDashboard({ user }) {
       .slice(0, 6);
   };
 
-  // Get active projects
-  const getActiveProjects = () => {
-    return projects
-      .filter(p => p.isActive && p.status === 'active')
-      .slice(0, 3);
+  // Get tasks needing attention (rejected or in review)
+  const getTasksNeedingAttention = () => {
+    return tasks.filter(t =>
+      ['design_rejected', 'rejected', 'design_submitted'].includes(t.status)
+    ).slice(0, 3);
   };
 
   if (loading) {
@@ -299,20 +301,19 @@ export default function DeveloperDashboard({ user }) {
   const taskStatusData = getTaskStatusData();
   const tasksPerProjectData = getTasksPerProjectData();
   const recentTasks = getRecentTasks();
-  const activeProjects = getActiveProjects();
 
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Welcome Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-green-400 to-green-600">
-            <Code size={24} className="text-white" />
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600">
+            <Palette size={24} className="text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Developer Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-900">UI/UX Designer Dashboard</h1>
             <p className="text-gray-500 mt-1">
-              Welcome back, {user?.name?.split(' ')[0] || 'Developer'}! Here's your development work overview.
+              Welcome back, {user?.name?.split(' ')[0] || 'Designer'}! Here's your design work overview.
             </p>
           </div>
         </div>
@@ -334,36 +335,36 @@ export default function DeveloperDashboard({ user }) {
           title="Total Tasks"
           value={String(stats.totalTasks)}
           icon={FolderKanban}
-          iconBg="bg-gradient-to-br from-green-400 to-green-600"
+          iconBg="bg-gradient-to-br from-purple-400 to-purple-600"
         />
         <StatCard
           title="Pending"
-          value={String(stats.pendingTasks)}
-          change={stats.pendingTasks > 0 ? `${stats.pendingTasks} awaiting` : null}
+          value={String(stats.pendingDesigns)}
+          change={stats.pendingDesigns > 0 ? `${stats.pendingDesigns} awaiting` : null}
           changeType="neutral"
           icon={Clock}
           iconBg="bg-gradient-to-br from-yellow-400 to-yellow-600"
         />
         <StatCard
           title="Under Review"
-          value={String(stats.reviewTasks)}
-          change={stats.reviewTasks > 0 ? 'With tester' : null}
+          value={String(stats.reviewDesigns)}
+          change={stats.reviewDesigns > 0 ? 'With tester' : null}
           changeType="neutral"
           icon={Eye}
           iconBg="bg-gradient-to-br from-blue-400 to-blue-600"
         />
         <StatCard
           title="Approved"
-          value={String(stats.approvedTasks)}
-          change={stats.approvedTasks > 0 ? '+this week' : null}
+          value={String(stats.approvedDesigns)}
+          change={stats.approvedDesigns > 0 ? '+this week' : null}
           changeType="positive"
           icon={CheckCircle}
-          iconBg="bg-gradient-to-br from-emerald-400 to-emerald-600"
+          iconBg="bg-gradient-to-br from-green-400 to-green-600"
         />
         <StatCard
           title="Rejected"
-          value={String(stats.rejectedTasks)}
-          change={stats.rejectedTasks > 0 ? 'Needs revision' : null}
+          value={String(stats.rejectedDesigns)}
+          change={stats.rejectedDesigns > 0 ? 'Needs revision' : null}
           changeType="negative"
           icon={XCircle}
           iconBg="bg-gradient-to-br from-red-400 to-red-600"
@@ -375,11 +376,11 @@ export default function DeveloperDashboard({ user }) {
         {/* Pie Chart - Task Status Distribution */}
         <div className="lg:col-span-1 chart-container-enhanced">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-green-400 to-green-500">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-400 to-purple-500">
               <PieChartIcon size={20} className="text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Development Progress</h3>
+              <h3 className="font-semibold text-gray-900">Design Progress</h3>
               <p className="text-sm text-gray-500">Pending, Review, Approved & Rejected</p>
             </div>
           </div>
@@ -434,7 +435,7 @@ export default function DeveloperDashboard({ user }) {
             <div className="h-52 flex items-center justify-center text-sm text-gray-400">
               <div className="text-center">
                 <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                <p>No development tasks yet</p>
+                <p>No design tasks yet</p>
               </div>
             </div>
           )}
@@ -526,12 +527,12 @@ export default function DeveloperDashboard({ user }) {
       <div className="chart-container-enhanced">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-green-400 to-green-500">
-              <Code size={20} className="text-white" />
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-400 to-purple-500">
+              <Palette size={20} className="text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Recent Development Tasks</h3>
-              <p className="text-sm text-gray-500">Your assigned development work</p>
+              <h3 className="font-semibold text-gray-900">Recent Design Tasks</h3>
+              <p className="text-sm text-gray-500">Your assigned design work</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={() => navigate('/tasks')}>
@@ -552,10 +553,10 @@ export default function DeveloperDashboard({ user }) {
           </div>
         ) : (
           <div className="text-center py-12">
-            <Code className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-            <h4 className="text-lg font-medium text-gray-900 mb-2">No Development Tasks</h4>
+            <Palette className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <h4 className="text-lg font-medium text-gray-900 mb-2">No Design Tasks</h4>
             <p className="text-sm text-gray-500 mb-4">
-              You haven't been assigned any development tasks yet. Tasks will appear here once they're created.
+              You haven't been assigned any design tasks yet. Tasks will appear here once they're created.
             </p>
             <Button variant="outline" onClick={() => navigate('/projects')}>
               Browse Projects
@@ -564,73 +565,15 @@ export default function DeveloperDashboard({ user }) {
         )}
       </div>
 
-      {/* Active Projects Quick View */}
-      {activeProjects.length > 0 && (
-        <div className="chart-container-enhanced">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-500">
-                <FolderKanban size={20} className="text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Active Projects</h3>
-                <p className="text-sm text-gray-500">Projects you're assigned to</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/projects')}>
-              View All
-              <ChevronRight size={16} className="ml-1" />
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {activeProjects.map((project) => (
-              <div
-                key={project._id}
-                onClick={() => navigate(`/projects/${project._id}`)}
-                className="project-card-enhanced cursor-pointer"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="font-semibold text-gray-900">
-                      {project.projectName || project.businessName}
-                    </h4>
-                    <p className="text-sm text-gray-500">{project.customerName}</p>
-                  </div>
-                  <Badge className="bg-green-100 text-green-700">Active</Badge>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Progress</span>
-                    <span className="font-medium text-gray-900">{project.overallProgress}%</span>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${project.overallProgress}%`,
-                        background: project.overallProgress >= 100
-                          ? '#10B981'
-                          : 'linear-gradient(90deg, #FFC107 0%, #FFD54F 100%)'
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <button
           onClick={() => navigate('/tasks')}
-          className="p-4 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl text-white text-left hover:shadow-lg transition-all duration-200"
+          className="p-4 bg-gradient-to-br from-purple-400 to-purple-600 rounded-2xl text-white text-left hover:shadow-lg transition-all duration-200"
         >
-          <Code size={24} className="mb-2" />
+          <Clock size={24} className="mb-2" />
           <p className="font-semibold">View All Tasks</p>
-          <p className="text-sm text-white/80 mt-1">See all your development work</p>
+          <p className="text-sm text-white/80 mt-1">See all your design assignments</p>
         </button>
         <button
           onClick={() => navigate('/projects')}
@@ -641,26 +584,26 @@ export default function DeveloperDashboard({ user }) {
           <p className="text-sm text-gray-500 mt-1">View assigned projects</p>
         </button>
         <button
-          onClick={() => navigate('/tasks?status=pending')}
+          onClick={() => navigate('/creatives')}
           className="enhanced-card p-4 text-gray-900 text-left"
         >
-          <Clock size={24} className="mb-2 text-yellow-500" />
-          <p className="font-semibold">Pending Tasks</p>
-          <p className="text-sm text-gray-500 mt-1">Tasks awaiting development</p>
+          <Upload size={24} className="mb-2 text-green-500" />
+          <p className="font-semibold">Upload Design</p>
+          <p className="text-sm text-gray-500 mt-1">Submit your design work</p>
         </button>
       </div>
 
       {/* Rejected Tasks Alert (if any) */}
-      {stats.rejectedTasks > 0 && (
+      {stats.rejectedDesigns > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-red-100 rounded-lg">
               <XCircle size={20} className="text-red-600" />
             </div>
             <div>
-              <p className="font-medium text-red-900">Rejected Tasks Need Attention</p>
+              <p className="font-medium text-red-900">Rejected Designs Need Attention</p>
               <p className="text-sm text-red-600">
-                You have {stats.rejectedTasks} task{stats.rejectedTasks !== 1 ? 's' : ''} that need{stats.rejectedTasks === 1 ? 's' : ''} revision.
+                You have {stats.rejectedDesigns} design{stats.rejectedDesigns !== 1 ? 's' : ''} that need{stats.rejectedDesigns === 1 ? 's' : ''} revision.
               </p>
             </div>
           </div>

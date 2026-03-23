@@ -84,6 +84,11 @@ function TaskCard({ task, onClick }) {
             <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor}`}>
               {statusConfig.label}
             </Badge>
+            {task.creativeType && (
+              <Badge variant="outline" className="text-xs">
+                {task.creativeType}
+              </Badge>
+            )}
           </div>
           <h3 className="font-semibold text-gray-900 truncate">
             {task.creativeName || task.taskTitle || 'Design Task'}
@@ -94,17 +99,21 @@ function TaskCard({ task, onClick }) {
         </div>
       </div>
 
+      {/* Show rejection reason if rejected */}
+      {['design_rejected', 'rejected'].includes(task.status) && task.rejectionNote && (
+        <div className="mb-3 p-2 bg-red-50 rounded-lg border border-red-200">
+          <p className="text-xs text-red-700 line-clamp-2">
+            <span className="font-medium">Rejection Reason:</span> {task.rejectionNote}
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between text-sm text-gray-500">
         <div className="flex items-center gap-1">
           <Clock size={14} />
           <span>{formatDate(task.updatedAt)}</span>
         </div>
         <div className="flex items-center gap-2">
-          {task.creativeType && (
-            <Badge variant="outline" className="text-xs">
-              {task.creativeType}
-            </Badge>
-          )}
           <ChevronRight size={16} className="text-gray-400" />
         </div>
       </div>
@@ -121,7 +130,7 @@ export default function GraphicDesignerDashboard({ user }) {
   const [stats, setStats] = useState({
     totalTasks: 0,
     pendingDesigns: 0,
-    submittedDesigns: 0,
+    reviewDesigns: 0,
     approvedDesigns: 0,
     rejectedDesigns: 0,
   });
@@ -161,9 +170,9 @@ export default function GraphicDesignerDashboard({ user }) {
       ['design_pending', 'todo', 'in_progress'].includes(t.status)
     ).length;
 
-    // Tasks submitted for review
-    const submittedDesigns = taskList.filter(t =>
-      ['design_submitted'].includes(t.status)
+    // Tasks submitted for review (In Review)
+    const reviewDesigns = taskList.filter(t =>
+      t.status === 'design_submitted'
     ).length;
 
     // Tasks approved (by tester or marketer)
@@ -179,28 +188,28 @@ export default function GraphicDesignerDashboard({ user }) {
     setStats({
       totalTasks: taskList.length,
       pendingDesigns,
-      submittedDesigns,
+      reviewDesigns,
       approvedDesigns,
       rejectedDesigns,
     });
   };
 
-  // Prepare pie chart data for task status distribution
+  // Prepare pie chart data for task status distribution (Pending, Review, Approved, Rejected)
   const getTaskStatusData = () => {
     const data = [
       { name: 'Pending', value: stats.pendingDesigns, color: CHART_COLORS.pending },
-      { name: 'Submitted', value: stats.submittedDesigns, color: CHART_COLORS.submitted },
+      { name: 'Review', value: stats.reviewDesigns, color: CHART_COLORS.review },
       { name: 'Approved', value: stats.approvedDesigns, color: CHART_COLORS.approved },
       { name: 'Rejected', value: stats.rejectedDesigns, color: CHART_COLORS.rejected },
     ];
     return data.filter(item => item.value > 0);
   };
 
-  // Prepare bar chart data - tasks completed per project
+  // Prepare bar chart data - tasks per project with proper status breakdown
   const getTasksPerProjectData = () => {
     const projectTaskCount = {};
 
-    // Group tasks by project and count
+    // Group tasks by project and count by status
     tasks.forEach(task => {
       const projectId = task.projectId?._id || task.projectId;
       const projectName = task.projectId?.projectName || task.projectId?.businessName || 'Unknown';
@@ -210,14 +219,28 @@ export default function GraphicDesignerDashboard({ user }) {
           name: projectName.length > 15 ? projectName.substring(0, 15) + '...' : projectName,
           fullName: projectName,
           total: 0,
-          completed: 0,
+          approved: 0,
+          review: 0,
+          pending: 0,
+          rejected: 0,
         };
       }
 
       projectTaskCount[projectId].total++;
 
+      // Categorize by status - from designer's perspective
       if (['design_approved', 'final_approved'].includes(task.status)) {
-        projectTaskCount[projectId].completed++;
+        // Approved by tester/marketer - designer's work is complete
+        projectTaskCount[projectId].approved++;
+      } else if (task.status === 'design_submitted') {
+        // Under review by tester
+        projectTaskCount[projectId].review++;
+      } else if (['design_rejected', 'rejected'].includes(task.status)) {
+        // Needs revision
+        projectTaskCount[projectId].rejected++;
+      } else {
+        // design_pending, todo, in_progress, or other statuses - needs to be designed
+        projectTaskCount[projectId].pending++;
       }
     });
 
@@ -228,8 +251,10 @@ export default function GraphicDesignerDashboard({ user }) {
       .map(item => ({
         name: item.name,
         fullName: item.fullName,
-        completed: item.completed,
-        pending: item.total - item.completed,
+        approved: item.approved,
+        review: item.review,
+        pending: item.pending,
+        rejected: item.rejected,
       }));
   };
 
@@ -238,6 +263,13 @@ export default function GraphicDesignerDashboard({ user }) {
     return [...tasks]
       .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
       .slice(0, 6);
+  };
+
+  // Get tasks needing attention (rejected or in review)
+  const getTasksNeedingAttention = () => {
+    return tasks.filter(t =>
+      ['design_rejected', 'rejected', 'design_submitted'].includes(t.status)
+    ).slice(0, 3);
   };
 
   if (loading) {
@@ -298,7 +330,7 @@ export default function GraphicDesignerDashboard({ user }) {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatCard
           title="Total Tasks"
           value={String(stats.totalTasks)}
@@ -306,7 +338,7 @@ export default function GraphicDesignerDashboard({ user }) {
           iconBg="bg-gradient-to-br from-pink-400 to-pink-600"
         />
         <StatCard
-          title="Pending Designs"
+          title="Pending"
           value={String(stats.pendingDesigns)}
           change={stats.pendingDesigns > 0 ? `${stats.pendingDesigns} awaiting` : null}
           changeType="neutral"
@@ -314,20 +346,28 @@ export default function GraphicDesignerDashboard({ user }) {
           iconBg="bg-gradient-to-br from-yellow-400 to-yellow-600"
         />
         <StatCard
-          title="Submitted Designs"
-          value={String(stats.submittedDesigns)}
-          change={stats.submittedDesigns > 0 ? `${stats.submittedDesigns} in review` : null}
+          title="Under Review"
+          value={String(stats.reviewDesigns)}
+          change={stats.reviewDesigns > 0 ? 'With tester' : null}
           changeType="neutral"
-          icon={Send}
+          icon={Eye}
           iconBg="bg-gradient-to-br from-blue-400 to-blue-600"
         />
         <StatCard
-          title="Approved Designs"
+          title="Approved"
           value={String(stats.approvedDesigns)}
           change={stats.approvedDesigns > 0 ? '+this week' : null}
           changeType="positive"
           icon={CheckCircle}
           iconBg="bg-gradient-to-br from-green-400 to-green-600"
+        />
+        <StatCard
+          title="Rejected"
+          value={String(stats.rejectedDesigns)}
+          change={stats.rejectedDesigns > 0 ? 'Needs revision' : null}
+          changeType="negative"
+          icon={XCircle}
+          iconBg="bg-gradient-to-br from-red-400 to-red-600"
         />
       </div>
 
@@ -340,8 +380,8 @@ export default function GraphicDesignerDashboard({ user }) {
               <PieChartIcon size={20} className="text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Design Tasks Overview</h3>
-              <p className="text-sm text-gray-500">Status distribution</p>
+              <h3 className="font-semibold text-gray-900">Design Progress</h3>
+              <p className="text-sm text-gray-500">Pending, Review, Approved & Rejected</p>
             </div>
           </div>
 
@@ -410,17 +450,7 @@ export default function GraphicDesignerDashboard({ user }) {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">Tasks by Project</h3>
-                <p className="text-sm text-gray-500">Completed vs pending</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-green-500" />
-                <span className="text-xs text-gray-500">Completed</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-yellow-500" />
-                <span className="text-xs text-gray-500">Pending</span>
+                <p className="text-sm text-gray-500">Status breakdown</p>
               </div>
             </div>
           </div>
@@ -457,8 +487,13 @@ export default function GraphicDesignerDashboard({ user }) {
                   />
                   <Tooltip
                     formatter={(value, name) => {
-                      const label = name === 'completed' ? 'Completed' : 'Pending';
-                      return [`${value} task${value !== 1 ? 's' : ''}`, label];
+                      const labels = {
+                        approved: 'Approved',
+                        review: 'Under Review',
+                        pending: 'Pending',
+                        rejected: 'Rejected'
+                      };
+                      return [`${value} task${value !== 1 ? 's' : ''}`, labels[name] || name];
                     }}
                     contentStyle={{
                       backgroundColor: 'white',
@@ -470,8 +505,10 @@ export default function GraphicDesignerDashboard({ user }) {
                     }}
                     cursor={{ fill: 'rgba(0,0,0,0.04)' }}
                   />
-                  <Bar dataKey="completed" stackId="a" fill="#10B981" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="pending" stackId="a" fill="#F59E0B" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="approved" stackId="a" fill="#10B981" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="review" stackId="a" fill="#3B82F6" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="pending" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="rejected" stackId="a" fill="#EF4444" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

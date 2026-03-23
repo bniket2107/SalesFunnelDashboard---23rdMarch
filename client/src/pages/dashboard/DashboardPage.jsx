@@ -3,6 +3,7 @@ import AdminDashboardPage from './AdminDashboardPage';
 import PerformanceMarketerDashboard from './PerformanceMarketerDashboard';
 import TeamMemberDashboard from './TeamMemberDashboard';
 import GraphicDesignerDashboard from './GraphicDesignerDashboard';
+import UIDesignerDashboard from './UIDesignerDashboard';
 import DeveloperDashboard from './DeveloperDashboard';
 import TesterDashboard from './TesterDashboard';
 import ContentWriterDashboard from './ContentWriterDashboard';
@@ -20,6 +21,8 @@ export default function DashboardPage() {
       return <PerformanceMarketerDashboard user={user} />;
     case 'graphic_designer':
       return <GraphicDesignerDashboard user={user} />;
+    case 'ui_ux_designer':
+      return <UIDesignerDashboard user={user} />;
     case 'developer':
       return <DeveloperDashboard user={user} />;
     case 'tester':
@@ -29,8 +32,6 @@ export default function DashboardPage() {
       return <ContentWriterDashboard user={user} />;
     case 'video_editor':
       return <VideoEditorDashboard user={user} />;
-    case 'ui_ux_designer':
-      return <TeamMemberDashboard user={user} />;
     default:
       // Fallback to team member dashboard for unknown team roles
       return <TeamMemberDashboard user={user} />;
