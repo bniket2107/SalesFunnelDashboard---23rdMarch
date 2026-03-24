@@ -168,6 +168,15 @@ const taskSchema = new mongoose.Schema({
     type: String,
     description: 'AI-generated prompt for the task based on strategy context'
   },
+  aiFramework: {
+    type: String,
+    enum: [
+      'PAS', 'AIDA', 'BAB', '4C', 'STORY', 'DIRECT_RESPONSE',
+      'HOOKS', 'OBJECTION', 'PASTOR', 'QUEST', 'ACCA',
+      'FAB', '5A', 'SLAP', 'HOOK_STORY_OFFER', '4P', 'MASTER'
+    ],
+    description: 'Framework used to generate the AI prompt'
+  },
   sopReference: {
     type: String,
     description: 'Reference to standard operating procedure document'

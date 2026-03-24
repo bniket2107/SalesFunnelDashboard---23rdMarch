@@ -250,4 +250,26 @@ export const clientService = {
   searchClients: (query) => api.get('/clients/search', { params: { q: query } }),
 };
 
+// Prompt service
+export const promptService = {
+  getPrompts: (params) => api.get('/prompts', { params }),
+  getPrompt: (id) => api.get(`/prompts/${id}`),
+  createPrompt: (data) => api.post('/prompts', data),
+  updatePrompt: (id, data) => api.put(`/prompts/${id}`, data),
+  deletePrompt: (id) => api.delete(`/prompts/${id}`),
+  togglePromptActive: (id) => api.put(`/prompts/${id}/toggle-active`),
+  getPromptsByRole: (role) => api.get(`/prompts/by-role/${role}`),
+  generatePrompt: (data) => api.post('/prompts/generate', data),
+  getOllamaStatus: () => api.get('/prompts/ollama-status'),
+  getFrameworks: () => api.get('/prompts/frameworks'),
+};
+
+// AI service
+export const aiService = {
+  getFrameworks: () => api.get('/ai/frameworks'),
+  generateBrief: (data) => api.post('/ai/generate-brief', data),
+  regenerateBrief: (taskId, data) => api.post(`/ai/regenerate-brief/${taskId}`, data),
+  getStatus: () => api.get('/ai/status'),
+};
+
 export default api;

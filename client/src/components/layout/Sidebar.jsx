@@ -41,6 +41,7 @@ const navigationByRole = {
     { name: 'Clients', href: '/clients', icon: Briefcase },
     { name: 'Projects', href: '/projects', icon: FolderKanban },
     { name: 'Team Management', href: '/team', icon: Users },
+    { name: 'Prompts', href: '/prompts', icon: PenTool },
     { name: 'SOP Library', href: '/sop-library', icon: BookOpen },
     // { name: 'Settings', href: '/settings', icon: Settings },
   ],

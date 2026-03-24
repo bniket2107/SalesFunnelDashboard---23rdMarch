@@ -263,7 +263,7 @@ exports.searchClients = async (req, res) => {
         { email: { $regex: q, $options: 'i' } }
       ]
     })
-    .select('customerName businessName email mobile industry address')
+    .select('customerName businessName email mobile industry address.street address.city address.state address.country address.zipCode')
     .limit(20)
     .sort({ customerName: 1 });
 

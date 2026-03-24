@@ -3,11 +3,12 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardBody, CardHeader, Button, Spinner, Badge } from '@/components/ui';
-import { taskService } from '@/services/api';
+import { taskService, promptService, aiService } from '@/services/api';
 import {
   ClipboardList, Play, Send, CheckCircle, XCircle, Clock,
   FileText, ExternalLink, Upload, X, FileIcon, Video, Image,
-  AlertCircle, ArrowLeft, Download, Eye, Link, MessageSquare, Layout, Code, Palette
+  AlertCircle, ArrowLeft, Download, Eye, Link, MessageSquare, Layout, Code, Palette,
+  PenTool, Sparkles, Copy, ChevronRight, BookOpen
 } from 'lucide-react';
 import { STATUS_CONFIG, getStatusConfig } from '@/constants/taskStatuses';
 
@@ -55,6 +56,22 @@ export default function TaskDetailPage() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
 
+  // Prompts state
+  const [prompts, setPrompts] = useState([]);
+  const [promptsLoading, setPromptsLoading] = useState(false);
+  const [showPromptsPanel, setShowPromptsPanel] = useState(false);
+  const [selectedPrompt, setSelectedPrompt] = useState(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState('');
+  const [generatingPrompt, setGeneratingPrompt] = useState(false);
+  const [showGeneratedPrompt, setShowGeneratedPrompt] = useState(false);
+
+  // AI Content Brief state
+  const [aiFrameworks, setAiFrameworks] = useState([]);
+  const [selectedFramework, setSelectedFramework] = useState('');
+  const [generatingBrief, setGeneratingBrief] = useState(false);
+  const [aiBrief, setAiBrief] = useState('');
+  const [showFrameworkSelector, setShowFrameworkSelector] = useState(false);
+
   // Get the back URL from location state, default based on user role
   const getBackUrl = () => {
     // If we have a 'from' state, use it
@@ -91,6 +108,170 @@ export default function TaskDetailPage() {
   useEffect(() => {
     fetchTask();
   }, [taskId]);
+
+  // Fetch prompts when task is loaded
+  useEffect(() => {
+    if (task && user && ['content_writer', 'graphic_designer', 'video_editor', 'ui_ux_designer'].includes(user.role)) {
+      fetchPrompts();
+    }
+  }, [task, user]);
+
+  // Fetch AI frameworks for content writers
+  useEffect(() => {
+    if (user?.role === 'content_writer') {
+      fetchAIFrameworks();
+    }
+  }, [user]);
+
+  // Set initial AI brief and framework from task
+  useEffect(() => {
+    if (task) {
+      if (task.aiPrompt) {
+        setAiBrief(task.aiPrompt);
+      }
+      if (task.aiFramework) {
+        setSelectedFramework(task.aiFramework);
+      }
+    }
+  }, [task]);
+
+  const fetchAIFrameworks = async () => {
+    try {
+      const response = await aiService.getFrameworks();
+      setAiFrameworks(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch frameworks:', error);
+    }
+  };
+
+  const handleGenerateAIBrief = async () => {
+    if (!selectedFramework) {
+      toast.error('Please select a framework first');
+      return;
+    }
+
+    try {
+      setGeneratingBrief(true);
+      setAiBrief('');
+
+      const response = await aiService.generateBrief({
+        taskId: task._id,
+        frameworkType: selectedFramework
+      });
+
+      setAiBrief(response.data.contentBrief);
+      toast.success('AI Content Brief generated successfully!');
+    } catch (error) {
+      console.error('Error generating AI brief:', error);
+      toast.error(error.message || 'Failed to generate content brief. Please try again.');
+    } finally {
+      setGeneratingBrief(false);
+    }
+  };
+
+  const handleRegenerateBrief = async () => {
+    if (!selectedFramework) {
+      toast.error('Please select a framework first');
+      return;
+    }
+
+    try {
+      setGeneratingBrief(true);
+
+      const response = await aiService.regenerateBrief(task._id, {
+        frameworkType: selectedFramework
+      });
+
+      setAiBrief(response.data.contentBrief);
+      toast.success('Content brief regenerated!');
+    } catch (error) {
+      toast.error(error.message || 'Failed to regenerate brief');
+    } finally {
+      setGeneratingBrief(false);
+    }
+  };
+
+  const fetchPrompts = async () => {
+    if (!user) return;
+    try {
+      setPromptsLoading(true);
+      // Map task type to prompt role
+      const roleMap = {
+        content_writer: 'content_writer',
+        graphic_designer: 'graphic_designer',
+        video_editor: 'video_editor',
+        ui_ux_designer: 'ui_ux_designer',
+        developer: 'developer',
+        tester: 'tester'
+      };
+      const promptRole = roleMap[user.role] || user.role;
+      const response = await promptService.getPromptsByRole(promptRole);
+      setPrompts(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch prompts:', error);
+    } finally {
+      setPromptsLoading(false);
+    }
+  };
+
+  const handleGeneratePrompt = async () => {
+    if (!selectedPrompt) {
+      toast.error('Please select a prompt template first');
+      return;
+    }
+
+    try {
+      setGeneratingPrompt(true);
+      setGeneratedPrompt('');
+
+      const strategyContext = task.strategyContext || {};
+
+      // Build the request payload
+      const requestPayload = {
+        basePromptId: selectedPrompt._id,
+        context: {
+          problem: strategyContext.painPoints?.join(', ') || '',
+          audience: strategyContext.targetAudience || '',
+          platform: strategyContext.platform || '',
+          funnelStage: strategyContext.funnelStage || '',
+          goal: 'Create engaging content',
+          offer: strategyContext.offer || '',
+          creativeType: strategyContext.creativeType || task.assetType || '',
+          hook: strategyContext.hook || '',
+          headline: strategyContext.headline || '',
+          cta: strategyContext.cta || '',
+          brandName: task.projectId?.businessName || task.projectId?.projectName || '',
+          industry: strategyContext.industry || '',
+          painPoints: strategyContext.painPoints || [],
+          desires: strategyContext.desires || []
+        }
+      };
+
+      // If the prompt has a frameworkType, include it
+      if (selectedPrompt.frameworkType) {
+        requestPayload.frameworkType = selectedPrompt.frameworkType;
+      }
+
+      const response = await promptService.generatePrompt(requestPayload);
+
+      setGeneratedPrompt(response.data?.finalPrompt || '');
+      setShowGeneratedPrompt(true);
+      toast.success('Prompt generated successfully!');
+    } catch (error) {
+      toast.error(error.message || 'Failed to generate prompt. Make sure Ollama is running.');
+    } finally {
+      setGeneratingPrompt(false);
+    }
+  };
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard!');
+    } catch (error) {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
 
   const fetchTask = async () => {
     try {
@@ -720,8 +901,134 @@ export default function TaskDetailPage() {
             </CardBody>
           </Card>
 
-          {/* AI Prompt */}
-          {task.aiPrompt && (
+          {/* AI Content Brief - For Content Writers */}
+          {user?.role === 'content_writer' && task.taskType === 'content_creation' && (
+            <Card>
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-500" />
+                    AI Content Brief
+                  </h2>
+                  {aiBrief && (
+                    <button
+                      onClick={() => copyToClipboard(aiBrief)}
+                      className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Copy Brief
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  Generate AI-powered content brief using marketing frameworks
+                </p>
+              </CardHeader>
+              <CardBody className="p-6">
+                {/* Framework Selector */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Framework
+                  </label>
+                  <div className="flex gap-3">
+                    <select
+                      value={selectedFramework}
+                      onChange={(e) => setSelectedFramework(e.target.value)}
+                      className="flex-1 px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                    >
+                      <option value="">Choose a framework...</option>
+                      {aiFrameworks.map(f => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                    {!aiBrief ? (
+                      <Button
+                        onClick={handleGenerateAIBrief}
+                        loading={generatingBrief}
+                        disabled={!selectedFramework || generatingBrief}
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate Brief
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        onClick={handleRegenerateBrief}
+                        loading={generatingBrief}
+                        disabled={!selectedFramework || generatingBrief}
+                      >
+                        Regenerate
+                      </Button>
+                    )}
+                  </div>
+                  {selectedFramework && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      {aiFrameworks.find(f => f.value === selectedFramework)?.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Generated Brief */}
+                {generatingBrief && !aiBrief && (
+                  <div className="text-center py-12">
+                    <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-gray-500">Generating your content brief...</p>
+                    <p className="text-sm text-gray-400 mt-1">This may take a few seconds</p>
+                  </div>
+                )}
+
+                {aiBrief && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          {aiFrameworks.find(f => f.value === selectedFramework)?.value || selectedFramework}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed">
+                        {aiBrief}
+                      </pre>
+                    </div>
+                    <div className="mt-4 flex gap-3">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => copyToClipboard(aiBrief)}
+                      >
+                        <Copy className="w-4 h-4 mr-1" />
+                        Copy to Clipboard
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleRegenerateBrief}
+                        loading={generatingBrief}
+                      >
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        Regenerate
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {!aiBrief && !generatingBrief && (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    <BookOpen className="w-10 h-10 mx-auto text-gray-300 mb-3" />
+                    <p className="text-gray-500 mb-2">Select a framework and generate your AI content brief</p>
+                    <p className="text-sm text-gray-400">
+                      The AI will use your task's strategy context to create a personalized brief
+                    </p>
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
+
+          {/* AI Prompt (for other roles with pre-existing prompt) */}
+          {task.aiPrompt && user?.role !== 'content_writer' && (
             <Card>
               <CardHeader>
                 <h2 className="text-lg font-semibold text-gray-900">
@@ -1212,6 +1519,145 @@ export default function TaskDetailPage() {
               </dl>
             </CardBody>
           </Card>
+
+          {/* Prompts Sidebar - For content creators */}
+          {['content_writer', 'graphic_designer', 'video_editor', 'ui_ux_designer'].includes(user?.role) && prompts.length > 0 && (
+            <Card>
+              <CardBody className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <PenTool className="w-5 h-5 text-primary-500" />
+                    Prompt Templates
+                  </h3>
+                  <button
+                    onClick={() => setShowPromptsPanel(!showPromptsPanel)}
+                    className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+                  >
+                    {showPromptsPanel ? 'Hide' : 'View'}
+                    <ChevronRight className={`w-4 h-4 transition-transform ${showPromptsPanel ? 'rotate-90' : ''}`} />
+                  </button>
+                </div>
+
+                {showPromptsPanel && (
+                  <div className="space-y-3 mt-4">
+                    <p className="text-sm text-gray-500 mb-3">
+                      Select a prompt template to generate an AI-optimized creative brief
+                    </p>
+
+                    {promptsLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Spinner size="sm" />
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {prompts.map((prompt) => (
+                          <button
+                            key={prompt._id}
+                            onClick={() => setSelectedPrompt(prompt)}
+                            className={`w-full text-left p-3 rounded-lg border transition-all ${
+                              selectedPrompt?._id === prompt._id
+                                ? 'border-primary-500 bg-primary-50'
+                                : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="font-medium text-sm text-gray-900">{prompt.title}</div>
+                            <div className="flex gap-2 mt-1 flex-wrap">
+                              {prompt.frameworkType && (
+                                <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <Sparkles className="w-3 h-3" />
+                                  {prompt.frameworkType}
+                                </span>
+                              )}
+                              {!prompt.frameworkType && prompt.category && (
+                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                  {prompt.category}
+                                </span>
+                              )}
+                              {prompt.platform && prompt.platform !== 'all' && !prompt.frameworkType && (
+                                <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                                  {prompt.platform}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedPrompt && (
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                          <div className="text-xs font-medium text-gray-500 mb-1">Selected Template:</div>
+                          <div className="text-sm text-gray-700">{selectedPrompt.title}</div>
+                          {selectedPrompt.frameworkType && (
+                            <div className="text-xs text-purple-600 mt-1 flex items-center gap-1">
+                              <Sparkles className="w-3 h-3" />
+                              Framework: {selectedPrompt.frameworkType}
+                            </div>
+                          )}
+                          {selectedPrompt.description && (
+                            <div className="text-xs text-gray-500 mt-1">{selectedPrompt.description}</div>
+                          )}
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={handleGeneratePrompt}
+                          loading={generatingPrompt}
+                          disabled={generatingPrompt}
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate AI Prompt
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
+
+          {/* Generated Prompt Modal */}
+          {showGeneratedPrompt && generatedPrompt && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary-500" />
+                    Generated AI Prompt
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowGeneratedPrompt(false);
+                      setGeneratedPrompt('');
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6">
+                  <div className="bg-gray-50 rounded-lg p-4 whitespace-pre-wrap text-sm text-gray-800 font-mono">
+                    {generatedPrompt}
+                  </div>
+                  <div className="flex justify-end gap-3 mt-4">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setShowGeneratedPrompt(false);
+                        setGeneratedPrompt('');
+                      }}
+                    >
+                      Close
+                    </Button>
+                    <Button onClick={() => copyToClipboard(generatedPrompt)}>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy to Clipboard
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <Card>

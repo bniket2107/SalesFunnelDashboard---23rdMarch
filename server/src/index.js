@@ -24,6 +24,8 @@ const taskRoutes = require('./routes/tasks');
 const notificationRoutes = require('./routes/notifications');
 const strategyRoutes = require('./routes/strategy');
 const clientRoutes = require('./routes/clients');
+const promptRoutes = require('./routes/promptRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 // Import controllers for Socket.io integration
 const { setIO, createNotification } = require('./controllers/projectController');
@@ -85,6 +87,8 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/strategy', strategyRoutes);
 app.use('/api/clients', clientRoutes);
+app.use('/api/prompts', promptRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use((req, res, next) => {

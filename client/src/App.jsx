@@ -40,7 +40,7 @@ import { PerformanceMarketerAssetsPage, ProjectAssetsDetailPage } from '@/pages/
 import { TeamManagementPage } from '@/pages/team';
 
 // Admin
-import { ClientsPage, SOPLibraryPage } from '@/pages/admin';
+import { ClientsPage, SOPLibraryPage, PromptsPage } from '@/pages/admin';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -404,6 +404,16 @@ function AppRoutes() {
           element={
             <AdminRoute>
               <SOPLibraryPage />
+            </AdminRoute>
+          }
+        />
+
+        {/* Prompts Management (Admin only) */}
+        <Route
+          path="/prompts"
+          element={
+            <AdminRoute>
+              <PromptsPage />
             </AdminRoute>
           }
         />

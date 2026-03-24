@@ -53,7 +53,11 @@
       "Bash(taskkill:*)",
       "Bash(curl:*)",
       "Bash(npm install:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(node -e \"require\\(''./src/services/aiService.js''\\)\")",
+      "Bash(node -e \"require\\(''./src/controllers/aiController.js''\\)\")",
+      "Bash(node -e \"require\\(''./src/routes/aiRoutes.js''\\)\")",
+      "WebFetch(domain:hypereal.tech)"
     ]
   }
 }

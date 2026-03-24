@@ -98,6 +98,9 @@ export default function CreateProjectPage() {
   }, [clientSearch]);
 
   const handleSelectClient = (client) => {
+    console.log('Selected client data:', client);
+    console.log('Client address:', client.address);
+
     setSelectedClient(client);
     setClientSearch('');
     setShowDropdown(false);
@@ -110,12 +113,16 @@ export default function CreateProjectPage() {
     setValue('mobile', client.mobile || '');
     if (client.industry) setValue('industry', client.industry);
     if (client.description) setValue('description', client.description);
-    // Prefill address
-    setValue('address.street', client.address?.street || '');
-    setValue('address.city', client.address?.city || '');
-    setValue('address.state', client.address?.state || '');
-    setValue('address.country', client.address?.country || '');
-    setValue('address.zipCode', client.address?.zipCode || '');
+
+    // Prefill address - handle both nested object and flat structure
+    const addressData = client.address || {};
+    console.log('Address data to set:', addressData);
+
+    setValue('address.street', addressData.street || '');
+    setValue('address.city', addressData.city || '');
+    setValue('address.state', addressData.state || '');
+    setValue('address.country', addressData.country || '');
+    setValue('address.zipCode', addressData.zipCode || '');
   };
 
   const handleClearClient = () => {
@@ -137,6 +144,18 @@ export default function CreateProjectPage() {
     try {
       setLoading(true);
 
+      // Build address object - only include if there are values
+      const addressData = {
+        street: data['address.street']?.trim() || undefined,
+        city: data['address.city']?.trim() || undefined,
+        state: data['address.state']?.trim() || undefined,
+        country: data['address.country']?.trim() || undefined,
+        zipCode: data['address.zipCode']?.trim() || undefined,
+      };
+
+      // Check if any address field has a value
+      const hasAddress = Object.values(addressData).some(v => v !== undefined);
+
       // Transform data for API
       const projectData = {
         customerName: data.customerName,
@@ -151,18 +170,26 @@ export default function CreateProjectPage() {
           startDate: data.timelineStartDate ? new Date(data.timelineStartDate) : undefined,
           endDate: data.timelineEndDate ? new Date(data.timelineEndDate) : undefined,
         } : undefined,
-        address: {
-          street: data['address.street'] || undefined,
-          city: data['address.city'] || undefined,
-          state: data['address.state'] || undefined,
-          country: data['address.country'] || undefined,
-          zipCode: data['address.zipCode'] || undefined,
-        },
+        // Only include address if there are values
+        ...(hasAddress ? { address: addressData } : {}),
       };
 
       // Add client reference if selected
       if (selectedClient) {
         projectData.client = selectedClient._id;
+        // If client is selected and no address was entered, use client's address
+        if (!hasAddress && selectedClient.address) {
+          const clientAddress = selectedClient.address;
+          if (clientAddress.street || clientAddress.city || clientAddress.state || clientAddress.country || clientAddress.zipCode) {
+            projectData.address = {
+              street: clientAddress.street || undefined,
+              city: clientAddress.city || undefined,
+              state: clientAddress.state || undefined,
+              country: clientAddress.country || undefined,
+              zipCode: clientAddress.zipCode || undefined,
+            };
+          }
+        }
       }
 
       const response = await projectService.createProject(projectData);
@@ -224,12 +251,19 @@ export default function CreateProjectPage() {
                         {selectedClient.mobile}
                       </span>
                     </div>
-                    {selectedClient.address && (selectedClient.address.street || selectedClient.address.city || selectedClient.address.state || selectedClient.address.country || selectedClient.address.zipCode) && (
-                      <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span>{[selectedClient.address.street, selectedClient.address.city, selectedClient.address.state, selectedClient.address.country, selectedClient.address.zipCode].filter(Boolean).join(', ')}</span>
-                      </div>
-                    )}
+                    {(() => {
+                      const addr = selectedClient.address || {};
+                      const addressParts = [addr.street, addr.city, addr.state, addr.country, addr.zipCode].filter(Boolean);
+                      if (addressParts.length > 0) {
+                        return (
+                          <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>{addressParts.join(', ')}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
                 <button
@@ -258,30 +292,34 @@ export default function CreateProjectPage() {
               {/* Search Results Dropdown */}
               {showDropdown && clients.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {clients.map((client) => (
-                    <button
-                      key={client._id}
-                      type="button"
-                      onClick={() => handleSelectClient(client)}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-gray-500" />
+                  {clients.map((client) => {
+                    const clientAddress = client.address || {};
+                    const hasAddress = clientAddress.city || clientAddress.state || clientAddress.country;
+                    return (
+                      <button
+                        key={client._id}
+                        type="button"
+                        onClick={() => handleSelectClient(client)}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                            <User className="w-4 h-4 text-gray-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900">{client.customerName}</p>
+                            <p className="text-sm text-gray-500 truncate">{client.businessName} • {client.email}</p>
+                            {hasAddress && (
+                              <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                <MapPin className="w-3 h-3" />
+                                {[clientAddress.city, clientAddress.state, clientAddress.country].filter(Boolean).join(', ')}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{client.customerName}</p>
-                          <p className="text-sm text-gray-500">{client.businessName} • {client.email}</p>
-                          {client.address && (client.address.street || client.address.city || client.address.state || client.address.country || client.address.zipCode) && (
-                            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-3 h-3" />
-                              {[client.address.city, client.address.state, client.address.country].filter(Boolean).join(', ')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
