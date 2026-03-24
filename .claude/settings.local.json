@@ -51,7 +51,9 @@
       "Bash(node:*)",
       "Bash(netstat:*)",
       "Bash(taskkill:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }

@@ -177,9 +177,13 @@ export default function UIDesignerDashboard({ user }) {
       ['design_submitted', 'design_approved'].includes(t.status)
     ).length;
 
-    // Tasks fully approved (final approval by performance marketer)
+    // Tasks fully approved:
+    // - final_approved = fully approved (graphic designs, video edits)
+    // - development_pending = landing page designs approved by marketer, now with developer
+    // For UI/UX designer, development_pending means their design work is complete and approved
     const approvedDesigns = taskList.filter(t =>
-      t.status === 'final_approved'
+      t.status === 'final_approved' ||
+      (t.status === 'development_pending' && t.taskType === 'landing_page_design')
     ).length;
 
     // Tasks rejected
@@ -232,8 +236,12 @@ export default function UIDesignerDashboard({ user }) {
 
       // Categorize by status - from designer's perspective
       // Workflow: design_pending → design_submitted → design_approved (tester approved) → final_approved (marketer approved)
+      // For landing page designs: design_approved → development_pending (marketer approved, now with developer)
       if (task.status === 'final_approved') {
         // Final approval by marketer - designer's work is complete
+        projectTaskCount[projectId].approved++;
+      } else if (task.status === 'development_pending' && task.taskType === 'landing_page_design') {
+        // Landing page design approved by marketer, now in development - designer's work is complete
         projectTaskCount[projectId].approved++;
       } else if (['design_submitted', 'design_approved'].includes(task.status)) {
         // Under review: design_submitted = tester reviewing, design_approved = marketer reviewing

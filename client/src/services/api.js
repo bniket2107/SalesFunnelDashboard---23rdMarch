@@ -52,6 +52,9 @@ export const authService = {
   updateDetails: (data) => api.put('/auth/updatedetails', data),
   updatePassword: (data) => api.put('/auth/updatepassword', data),
   logout: () => api.post('/auth/logout'),
+  // Password reset
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  resetPassword: (token, data) => api.put(`/auth/reset-password/${token}`, data),
   // Team management
   getTeamMembers: (params) => api.get('/auth/team', { params }),
   getTeamByRole: () => api.get('/auth/team/by-role'),

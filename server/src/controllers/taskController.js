@@ -1847,7 +1847,7 @@ exports.getMyRoleTasks = async (req, res, next) => {
         content_writer: ['content_pending', 'content_submitted', 'content_final_approved', 'final_approved', 'content_rejected', 'content_approved', 'approved_by_tester'],
         graphic_designer: ['design_pending', 'design_submitted', 'design_approved', 'final_approved', 'design_rejected', 'approved_by_tester'],
         video_editor: ['design_pending', 'design_submitted', 'design_approved', 'final_approved', 'design_rejected', 'approved_by_tester'],
-        ui_ux_designer: ['design_pending', 'design_submitted', 'design_approved', 'final_approved', 'design_rejected', 'approved_by_tester'],
+        ui_ux_designer: ['design_pending', 'design_submitted', 'design_approved', 'final_approved', 'design_rejected', 'approved_by_tester', 'development_pending'],
         developer: ['development_pending', 'development_submitted', 'development_approved', 'final_approved', 'approved_by_tester']
       };
 

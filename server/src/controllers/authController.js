@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const sendEmail = require('../utils/sendEmail');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -648,6 +650,185 @@ exports.debugTestDb = async (req, res, next) => {
     });
   } catch (error) {
     console.error('Debug test error:', error);
+    next(error);
+  }
+};
+
+// @desc    Forgot password - send reset email
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      // Don't reveal whether user exists or not for security
+      return res.status(200).json({
+        success: true,
+        message: 'If a user with that email exists, a password reset link has been sent.'
+      });
+    }
+
+    // Generate reset token
+    const resetToken = user.getResetPasswordToken();
+
+    // Save user with reset token
+    await user.save({ validateBeforeSave: false });
+
+    // Create reset URL
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+
+    // Create email message
+    const message = `
+You are receiving this email because you (or someone else) has requested a password reset for your account.
+
+Please click on the following link to reset your password:
+${resetUrl}
+
+This link will expire in 10 minutes.
+
+If you did not request this, please ignore this email and your password will remain unchanged.
+`;
+
+    const html = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="text-align: center; margin-bottom: 30px;">
+    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+      <span style="color: white; font-weight: bold; font-size: 20px;">GV</span>
+    </div>
+    <h1 style="color: #1f2937; margin: 0;">Password Reset Request</h1>
+  </div>
+
+  <p style="color: #4b5563; line-height: 1.6;">
+    You are receiving this email because you (or someone else) has requested a password reset for your Growth Valley Dashboard account.
+  </p>
+
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="${resetUrl}" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
+      Reset Password
+    </a>
+  </div>
+
+  <p style="color: #6b7280; font-size: 14px;">
+    Or copy and paste this link into your browser:<br>
+    <a href="${resetUrl}" style="color: #6366f1; word-break: break-all;">${resetUrl}</a>
+  </p>
+
+  <p style="color: #dc2626; font-size: 14px;">
+    ⏰ This link will expire in 10 minutes.
+  </p>
+
+  <p style="color: #6b7280; font-size: 14px;">
+    If you did not request this, please ignore this email and your password will remain unchanged.
+  </p>
+
+  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+  <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+    © ${new Date().getFullYear()} Growth Valley. All rights reserved.
+  </p>
+</div>
+`;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'Password Reset - Growth Valley Dashboard',
+        message,
+        html,
+        resetUrl
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'If a user with that email exists, a password reset link has been sent.'
+      });
+    } catch (err) {
+      console.error('Email sending error:', err);
+
+      // Clear reset token if email fails
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        success: false,
+        message: 'Email could not be sent. Please try again later.'
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Reset password using token
+// @route   PUT /api/auth/reset-password/:token
+// @access  Public
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    // Hash the token to compare with stored hash
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    // Find user with valid token
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    // Update password and clear reset token
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    // Generate new token for auto-login
+    const jwtToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRE || '7d'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successful',
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      },
+      token: jwtToken
+    });
+  } catch (error) {
     next(error);
   }
 };

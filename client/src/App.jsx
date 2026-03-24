@@ -7,7 +7,7 @@ import { ProjectProvider } from '@/context/ProjectContext';
 import { Layout } from '@/components/layout';
 
 // Auth pages
-import { LoginPage, RegisterPage } from '@/pages/auth';
+import { LoginPage, RegisterPage, ForgotPasswordPage, ResetPasswordPage } from '@/pages/auth';
 
 // Dashboard
 import { DashboardPage } from '@/pages/dashboard';
@@ -168,6 +168,22 @@ function AppRoutes() {
         element={
           <PublicRoute>
             <RegisterPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPasswordPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/reset-password/:token"
+        element={
+          <PublicRoute>
+            <ResetPasswordPage />
           </PublicRoute>
         }
       />

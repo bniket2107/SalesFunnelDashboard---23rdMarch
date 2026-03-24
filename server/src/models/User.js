@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -45,6 +46,12 @@ const userSchema = new mongoose.Schema({
   },
   lastLogin: {
     type: Date
+  },
+  resetPasswordToken: {
+    type: String
+  },
+  resetPasswordExpire: {
+    type: Date
   }
 }, {
   timestamps: true
@@ -80,6 +87,23 @@ userSchema.methods.comparePassword = async function(enteredPassword) {
 // Static method to find active users by role
 userSchema.statics.findActiveByRole = function(role) {
   return this.find({ role, isActive: true });
+};
+
+// Generate password reset token
+userSchema.methods.getResetPasswordToken = function() {
+  // Generate random token
+  const resetToken = crypto.randomBytes(20).toString('hex');
+
+  // Hash token and set to resetPasswordToken field
+  this.resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // Set expire time (10 minutes)
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
 };
 
 module.exports = mongoose.model('User', userSchema);
