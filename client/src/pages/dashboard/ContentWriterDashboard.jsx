@@ -174,7 +174,7 @@ export default function ContentWriterDashboard({ user }) {
   };
 
   const calculateStats = (taskList) => {
-    // Content writer sees tasks in content workflow statuses
+    // Content Planner sees tasks in content workflow statuses
     // Pending = needs to start writing (includes todo, in_progress, content_pending)
     const pendingContent = taskList.filter(t =>
       ['content_pending', 'todo', 'in_progress'].includes(t.status)
@@ -320,7 +320,7 @@ export default function ContentWriterDashboard({ user }) {
               <FileText size={24} className="text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Content Writer Dashboard</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Content Planner Dashboard</h1>
               <p className="text-gray-500 mt-1">
                 Welcome back, {user?.name?.split(' ')[0] || 'Writer'}!
               </p>
@@ -357,7 +357,7 @@ export default function ContentWriterDashboard({ user }) {
             <FileText size={24} className="text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Content Writer Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Content Planner Dashboard</h1>
             <p className="text-gray-500 mt-1">
               Welcome back, {user?.name?.split(' ')[0] || 'Writer'}! Here's your content creation overview.
             </p>

@@ -24,6 +24,7 @@ import {
   Pause,
   Archive,
   CheckCircle2,
+  MapPin,
 } from 'lucide-react';
 import { formatDate, getStageName, STAGE_ORDER } from '@/lib/utils';
 import { PROJECT_STATUS_CONFIG, PROJECT_STATUS_VALUES, getProjectStatusConfig } from '@/constants/taskStatuses';
@@ -61,7 +62,7 @@ const STAGE_NAMES = {
 const ROLE_LABELS = {
   // Array fields (plural) - new format
   performanceMarketers: 'Performance Marketer',
-  contentWriters: 'Content Writer',
+  contentWriters: 'Content Planner',
   uiUxDesigners: 'UI/UX Designer',
   graphicDesigners: 'Graphic Designer',
   videoEditors: 'Video Editor',
@@ -69,7 +70,7 @@ const ROLE_LABELS = {
   testers: 'Tester',
   // Legacy fields (singular) - old format
   performanceMarketer: 'Performance Marketer',
-  contentWriter: 'Content Writer',
+  contentWriter: 'Content Planner',
   uiUxDesigner: 'UI/UX Designer',
   graphicDesigner: 'Graphic Designer',
   videoEditor: 'Video Editor',
@@ -87,7 +88,7 @@ const extractTeamMembers = (assignedTeam) => {
   // Field configurations: [arrayField, legacyField, displayLabel]
   const fieldConfigs = [
     ['performanceMarketers', 'performanceMarketer', 'Performance Marketer'],
-    ['contentWriters', 'contentWriter', 'Content Writer'],
+    ['contentWriters', 'contentWriter', 'Content Planner'],
     ['uiUxDesigners', 'uiUxDesigner', 'UI/UX Designer'],
     ['graphicDesigners', 'graphicDesigner', 'Graphic Designer'],
     ['videoEditors', 'videoEditor', 'Video Editor'],
@@ -254,7 +255,7 @@ export default function ProjectDetailPage() {
     return <TesterProjectView />;
   }
 
-  // Designer/Developer/Content Writer/Video Editor: Show TeamMemberProjectView
+  // Designer/Developer/Content Planner/Video Editor: Show TeamMemberProjectView
   if (isDesigner || isDeveloper || isContentWriter || isVideoEditor) {
     return <TeamMemberProjectView />;
   }
@@ -409,6 +410,21 @@ export default function ProjectDetailPage() {
               <div>
                 <label className="text-sm text-gray-500">Budget</label>
                 <p className="mt-1 font-medium text-gray-900">${project.budget.toLocaleString()}</p>
+              </div>
+            )}
+            {(project.address?.city || project.address?.street || project.client?.address?.city || project.client?.address?.street) && (
+              <div>
+                <label className="text-sm text-gray-500">Address</label>
+                <p className="mt-1 font-medium text-gray-900 flex items-start gap-1">
+                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-gray-400" />
+                  <span>{[
+                    project.client?.address?.street || project.address?.street,
+                    project.client?.address?.city || project.address?.city,
+                    project.client?.address?.state || project.address?.state,
+                    project.client?.address?.country || project.address?.country,
+                    project.client?.address?.zipCode || project.address?.zipCode
+                  ].filter(Boolean).join(', ')}</span>
+                </p>
               </div>
             )}
             <div>

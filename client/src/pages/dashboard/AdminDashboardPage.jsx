@@ -73,7 +73,7 @@ const ROLE_ICONS = {
 const ROLE_LABELS = {
   admin: 'Admin',
   performance_marketer: 'Performance Marketer',
-  content_writer: 'Content Writer',
+  content_writer: 'Content Planner',
   ui_ux_designer: 'UI/UX Designer',
   graphic_designer: 'Graphic Designer',
   video_editor: 'Video Editor',

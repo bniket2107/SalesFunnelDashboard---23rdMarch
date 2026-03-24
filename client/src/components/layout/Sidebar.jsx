@@ -25,7 +25,7 @@ const roleLabels = {
   admin: 'Admin',
   performance_marketer: 'Performance Marketer',
   content_creator: 'Content Creator',
-  content_writer: 'Content Writer',
+  content_writer: 'Content Planner',
   ui_ux_designer: 'UI/UX Designer',
   graphic_designer: 'Designer',
   video_editor: 'Video Editor',
@@ -53,7 +53,7 @@ const navigationByRole = {
     { name: 'Assets', href: '/assets', icon: FileCheck },
   ],
 
-  // CONTENT WRITER 
+  // Content Planner 
   content_writer: [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'My Projects', href: '/projects', icon: FolderKanban },

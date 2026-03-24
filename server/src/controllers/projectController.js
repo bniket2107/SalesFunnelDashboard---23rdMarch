@@ -104,7 +104,7 @@ exports.getProjects = async (req, res, next) => {
 
     const projects = await Project.find(query)
       .populate('createdBy', 'name email')
-      .populate('client', 'customerName businessName email mobile industry')
+      .populate('client', 'customerName businessName email mobile industry address')
       // New array fields
       .populate('assignedTeam.performanceMarketers', 'name email specialization avatar')
       .populate('assignedTeam.contentWriters', 'name email specialization avatar')
@@ -162,7 +162,7 @@ exports.getProject = async (req, res, next) => {
 
     const project = await Project.findById(req.params.id)
       .populate('createdBy', 'name email')
-      .populate('client', 'customerName businessName email mobile industry')
+      .populate('client', 'customerName businessName email mobile industry address')
       // New array fields
       .populate('assignedTeam.performanceMarketers', 'name email specialization avatar')
       .populate('assignedTeam.contentWriters', 'name email specialization avatar')
@@ -257,6 +257,7 @@ exports.createProject = async (req, res, next) => {
       mobile,
       email,
       industry,
+      address,
       description,
       budget,
       timeline,
@@ -272,6 +273,7 @@ exports.createProject = async (req, res, next) => {
       mobile,
       email,
       industry,
+      address,
       description,
       budget,
       timeline,
@@ -546,8 +548,8 @@ exports.assignTeam = async (req, res, next) => {
     const roleLabels = {
       performanceMarketer: 'Performance Marketer',
       performanceMarketers: 'Performance Marketer',
-      contentWriter: 'Content Writer',
-      contentWriters: 'Content Writer',
+      contentWriter: 'Content Planner',
+      contentWriters: 'Content Planner',
       uiUxDesigner: 'UI/UX Designer',
       uiUxDesigners: 'UI/UX Designer',
       graphicDesigner: 'Graphic Designer',

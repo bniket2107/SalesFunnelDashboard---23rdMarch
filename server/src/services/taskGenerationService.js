@@ -396,7 +396,7 @@ function generateAdTypeTasks(adType, projectId, creativeStrategyId, strategyCont
         notes: creatives.notes,
         completedBy
       });
-      // Set initial status based on content writer presence
+      // Set initial status based on Content Planner presence
       designTask.status = contentWriter ? 'design_pending' : 'todo';
       if (contentWriter) {
         designTask.description = 'This task will become active after content is approved.';
@@ -840,14 +840,14 @@ function generateCreativePlanTasks(creativePlan, projectId, creativeStrategyId, 
       }
     }
 
-    // For content task - use contentWriter from creative plan if specified, otherwise use project-level content writers
+    // For content task - use contentWriter from creative plan if specified, otherwise use project-level Content Planners
     const creativeContentWriter = planItem.contentWriter;
     if (creativeContentWriter) {
-      // Use the specific content writer assigned to this creative
+      // Use the specific Content Planner assigned to this creative
       contentAssignedTo = creativeContentWriter._id || creativeContentWriter;
       console.log(`Content task assigned to creative's contentWriter: ${contentAssignedTo}`);
     } else if (defaultContentWriters && defaultContentWriters.length > 0) {
-      // Fall back to project-level content writers
+      // Fall back to project-level Content Planners
       contentAssignedTo = defaultContentWriters[0]._id || defaultContentWriters[0];
       console.log(`Content task assigned to project's default contentWriter: ${contentAssignedTo}`);
     } else {

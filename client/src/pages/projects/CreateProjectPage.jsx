@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { projectService, clientService } from '@/services/api';
 import { Card, CardBody, CardHeader, Button, Input } from '@/components/ui';
-import { ArrowLeft, Search, User, Building, Mail, Phone, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, User, Building, Mail, Phone, X, Loader2, MapPin } from 'lucide-react';
 
 const projectSchema = z.object({
   projectName: z.string().min(2, 'Project name must be at least 2 characters').optional().or(z.literal('')),
@@ -19,6 +19,11 @@ const projectSchema = z.object({
   budget: z.string().optional().or(z.literal('')),
   timelineStartDate: z.string().optional().or(z.literal('')),
   timelineEndDate: z.string().optional().or(z.literal('')),
+  'address.street': z.string().optional().or(z.literal('')),
+  'address.city': z.string().optional().or(z.literal('')),
+  'address.state': z.string().optional().or(z.literal('')),
+  'address.country': z.string().optional().or(z.literal('')),
+  'address.zipCode': z.string().optional().or(z.literal('')),
 });
 
 export default function CreateProjectPage() {
@@ -49,6 +54,11 @@ export default function CreateProjectPage() {
       budget: '',
       timelineStartDate: '',
       timelineEndDate: '',
+      'address.street': '',
+      'address.city': '',
+      'address.state': '',
+      'address.country': '',
+      'address.zipCode': '',
     },
   });
 
@@ -100,6 +110,12 @@ export default function CreateProjectPage() {
     setValue('mobile', client.mobile || '');
     if (client.industry) setValue('industry', client.industry);
     if (client.description) setValue('description', client.description);
+    // Prefill address
+    setValue('address.street', client.address?.street || '');
+    setValue('address.city', client.address?.city || '');
+    setValue('address.state', client.address?.state || '');
+    setValue('address.country', client.address?.country || '');
+    setValue('address.zipCode', client.address?.zipCode || '');
   };
 
   const handleClearClient = () => {
@@ -110,6 +126,11 @@ export default function CreateProjectPage() {
     setValue('mobile', '');
     setValue('industry', '');
     setValue('description', '');
+    setValue('address.street', '');
+    setValue('address.city', '');
+    setValue('address.state', '');
+    setValue('address.country', '');
+    setValue('address.zipCode', '');
   };
 
   const onSubmit = async (data) => {
@@ -130,6 +151,13 @@ export default function CreateProjectPage() {
           startDate: data.timelineStartDate ? new Date(data.timelineStartDate) : undefined,
           endDate: data.timelineEndDate ? new Date(data.timelineEndDate) : undefined,
         } : undefined,
+        address: {
+          street: data['address.street'] || undefined,
+          city: data['address.city'] || undefined,
+          state: data['address.state'] || undefined,
+          country: data['address.country'] || undefined,
+          zipCode: data['address.zipCode'] || undefined,
+        },
       };
 
       // Add client reference if selected
@@ -170,7 +198,7 @@ export default function CreateProjectPage() {
       {/* Client Selection */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">Select Client (Optional)</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Select Client</h2>
           <p className="text-sm text-gray-500 mt-1">
             Search and select an existing client to auto-fill their details.
           </p>
@@ -196,6 +224,12 @@ export default function CreateProjectPage() {
                         {selectedClient.mobile}
                       </span>
                     </div>
+                    {selectedClient.address && (selectedClient.address.street || selectedClient.address.city || selectedClient.address.state || selectedClient.address.country || selectedClient.address.zipCode) && (
+                      <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>{[selectedClient.address.street, selectedClient.address.city, selectedClient.address.state, selectedClient.address.country, selectedClient.address.zipCode].filter(Boolean).join(', ')}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button
@@ -238,6 +272,12 @@ export default function CreateProjectPage() {
                         <div>
                           <p className="font-medium text-gray-900">{client.customerName}</p>
                           <p className="text-sm text-gray-500">{client.businessName} • {client.email}</p>
+                          {client.address && (client.address.street || client.address.city || client.address.state || client.address.country || client.address.zipCode) && (
+                            <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                              <MapPin className="w-3 h-3" />
+                              {[client.address.city, client.address.state, client.address.country].filter(Boolean).join(', ')}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </button>
@@ -326,6 +366,48 @@ export default function CreateProjectPage() {
                   error={errors.email?.message}
                   {...register('email')}
                 />
+              </div>
+
+              {/* Address Fields */}
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                  <MapPin className="w-4 h-4" />
+                  Address
+                </h4>
+                <Input
+                  label="Street Address"
+                  placeholder="123 Main Street"
+                  error={errors['address.street']?.message}
+                  {...register('address.street')}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <Input
+                    label="City"
+                    placeholder="New York"
+                    error={errors['address.city']?.message}
+                    {...register('address.city')}
+                  />
+                  <Input
+                    label="State/Province"
+                    placeholder="NY"
+                    error={errors['address.state']?.message}
+                    {...register('address.state')}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <Input
+                    label="Country"
+                    placeholder="United States"
+                    error={errors['address.country']?.message}
+                    {...register('address.country')}
+                  />
+                  <Input
+                    label="Zip/Postal Code"
+                    placeholder="10001"
+                    error={errors['address.zipCode']?.message}
+                    {...register('address.zipCode')}
+                  />
+                </div>
               </div>
             </div>
 

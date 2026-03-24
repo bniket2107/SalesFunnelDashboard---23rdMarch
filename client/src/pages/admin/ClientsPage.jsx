@@ -309,7 +309,7 @@ export default function ClientsPage() {
                       </a>
                     </div>
                   )}
-                  {client.address?.city && (
+                  {client.address && (client.address.street || client.address.city || client.address.state || client.address.country || client.address.zipCode) && (
                     <div className="flex items-center gap-2 text-gray-600">
                       <MapPin className="w-4 h-4 text-gray-400" />
                       <span>{[client.address.city, client.address.state, client.address.country].filter(Boolean).join(', ')}</span>

@@ -1,7 +1,7 @@
 /**
- * Migration script to fix tasks for content writers
+ * Migration script to fix tasks for Content Planners
  * This script sets originalAssignedTo for tasks that don't have it
- * and ensures content writers can see their submitted/approved tasks
+ * and ensures Content Planners can see their submitted/approved tasks
  *
  * Run with: node scripts/fixContentWriterTasks.js
  */
@@ -69,7 +69,7 @@ async function fixContentWriterTasks() {
           // Check createdBy as fallback (task creator often assigns to themselves or assigns the task)
           // Also check if there's an assignee in revision history
 
-          // For content tasks, the original assignee would be the content writer
+          // For content tasks, the original assignee would be the Content Planner
           // For design tasks, it would be the designer
           // For development tasks, it would be the developer
 

@@ -38,7 +38,7 @@ import { cn } from '@/lib/utils';
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin', icon: Crown, color: 'bg-gradient-to-br from-red-500 to-rose-600', lightColor: 'bg-red-50 text-red-600' },
   { value: 'performance_marketer', label: 'Performance Marketer', icon: TrendingUp, color: 'bg-gradient-to-br from-blue-500 to-indigo-600', lightColor: 'bg-blue-50 text-blue-600' },
-  { value: 'content_writer', label: 'Content Writer', icon: FileText, color: 'bg-gradient-to-br from-emerald-500 to-teal-600', lightColor: 'bg-emerald-50 text-emerald-600' },
+  { value: 'content_writer', label: 'Content Planner', icon: FileText, color: 'bg-gradient-to-br from-emerald-500 to-teal-600', lightColor: 'bg-emerald-50 text-emerald-600' },
   { value: 'ui_ux_designer', label: 'UI/UX Designer', icon: Layout, color: 'bg-gradient-to-br from-purple-500 to-violet-600', lightColor: 'bg-purple-50 text-purple-600' },
   { value: 'graphic_designer', label: 'Graphic Designer', icon: Image, color: 'bg-gradient-to-br from-pink-500 to-rose-600', lightColor: 'bg-pink-50 text-pink-600' },
   { value: 'video_editor', label: 'Video Editor', icon: Video, color: 'bg-gradient-to-br from-cyan-500 to-teal-600', lightColor: 'bg-cyan-50 text-cyan-600' },
@@ -509,7 +509,7 @@ function TeamMemberModal({ isOpen, onClose, member, onSave }) {
                 </div>
               </div> */}
 
-              {!member && (
+              {/* {!member && (
                 <div className="border-t border-gray-100 pt-5">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Assign to Project <span className="text-gray-400">(Optional)</span>
@@ -527,7 +527,7 @@ function TeamMemberModal({ isOpen, onClose, member, onSave }) {
                     ))}
                   </select>
                 </div>
-              )}
+              )} */}
             </form>
           </div>
 

@@ -412,7 +412,7 @@ export default function TaskDetailPage() {
 
   const canSubmitContent = () => {
     // Content creator can submit from content_pending or content_rejected
-    // Only assigned content writers can submit
+    // Only assigned Content Planners can submit
     return task && ['content_pending', 'content_rejected'].includes(task.status) &&
            task.taskType === 'content_creation' && isAssignedUser();
   };
@@ -1706,7 +1706,7 @@ export default function TaskDetailPage() {
               )}
 
               {/* ============ OTHER CREATIVE TASKS (Graphic Designer, Video Editor) ============ */}
-              {/* Note: Content writers have their own form above, this is for graphic_design and video_editing */}
+              {/* Note: Content Planners have their own form above, this is for graphic_design and video_editing */}
               {['graphic_design', 'video_editing'].includes(task.taskType) && (
                 <>
                   {/* Creative Link - Required */}

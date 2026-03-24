@@ -22,7 +22,7 @@ const ROLE_CONFIG = {
     singleSelect: true, // Only ONE performance marketer per project
   },
   content_writer: {
-    label: 'Content Writer',
+    label: 'Content Planner',
     assignedTeamField: 'contentWriters',
     legacyField: 'contentWriter',
     color: 'bg-emerald-100 text-emerald-700',

@@ -79,7 +79,7 @@ export const CAMPAIGN_OBJECTIVES = [
 
 // Creative Roles for assignment
 export const CREATIVE_ROLES = [
-  { key: 'content_writer', label: 'Content Writer' },
+  { key: 'content_writer', label: 'Content Planner' },
   { key: 'graphic_designer', label: 'Graphic Designer' },
   { key: 'video_editor', label: 'Video Editor' }
 ];

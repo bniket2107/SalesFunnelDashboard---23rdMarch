@@ -28,8 +28,18 @@ exports.checkStageAccess = (stageKey) => {
       }
 
       const project = await Project.findById(projectId)
+        // New array fields
+        .populate('assignedTeam.performanceMarketers', '_id')
+        .populate('assignedTeam.contentWriters', '_id')
+        .populate('assignedTeam.uiUxDesigners', '_id')
+        .populate('assignedTeam.graphicDesigners', '_id')
+        .populate('assignedTeam.videoEditors', '_id')
+        .populate('assignedTeam.developers', '_id')
+        .populate('assignedTeam.testers', '_id')
+        // Legacy single fields
         .populate('assignedTeam.performanceMarketer', '_id')
         .populate('assignedTeam.contentCreator', '_id')
+        .populate('assignedTeam.contentWriter', '_id')
         .populate('assignedTeam.uiUxDesigner', '_id')
         .populate('assignedTeam.graphicDesigner', '_id')
         .populate('assignedTeam.developer', '_id')
@@ -42,15 +52,28 @@ exports.checkStageAccess = (stageKey) => {
         });
       }
 
+      // Helper to check if user is in an array
+      const isInArray = (arr) => arr && Array.isArray(arr) && arr.some(member => member?._id?.toString() === req.user._id.toString() || member?.toString() === req.user._id.toString());
+
       // Check if user has access to this project (admin, creator, or assigned team member)
       const userId = req.user._id.toString();
       const isAssigned =
-        project.assignedTeam.performanceMarketer?._id?.toString() === userId ||
-        project.assignedTeam.contentCreator?._id?.toString() === userId ||
-        project.assignedTeam.uiUxDesigner?._id?.toString() === userId ||
-        project.assignedTeam.graphicDesigner?._id?.toString() === userId ||
-        project.assignedTeam.developer?._id?.toString() === userId ||
-        project.assignedTeam.tester?._id?.toString() === userId;
+        // New array fields
+        isInArray(project.assignedTeam?.performanceMarketers) ||
+        isInArray(project.assignedTeam?.contentWriters) ||
+        isInArray(project.assignedTeam?.uiUxDesigners) ||
+        isInArray(project.assignedTeam?.graphicDesigners) ||
+        isInArray(project.assignedTeam?.videoEditors) ||
+        isInArray(project.assignedTeam?.developers) ||
+        isInArray(project.assignedTeam?.testers) ||
+        // Legacy single fields
+        project.assignedTeam?.performanceMarketer?._id?.toString() === userId ||
+        project.assignedTeam?.contentCreator?._id?.toString() === userId ||
+        project.assignedTeam?.contentWriter?._id?.toString() === userId ||
+        project.assignedTeam?.uiUxDesigner?._id?.toString() === userId ||
+        project.assignedTeam?.graphicDesigner?._id?.toString() === userId ||
+        project.assignedTeam?.developer?._id?.toString() === userId ||
+        project.assignedTeam?.tester?._id?.toString() === userId;
 
       if (req.user.role !== 'admin' && project.createdBy.toString() !== userId && !isAssigned) {
         return res.status(403).json({

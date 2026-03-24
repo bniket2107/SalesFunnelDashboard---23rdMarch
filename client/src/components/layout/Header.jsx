@@ -23,7 +23,7 @@ export default function Header() {
     developer: 'Developer',
     tester: 'Tester',
     content_creator: 'Content Creator',
-    content_writer: 'Content Writer',
+    content_writer: 'Content Planner',
   };
 
   // Get notification icon based on type

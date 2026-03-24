@@ -337,7 +337,7 @@ exports.addCreative = async (req, res, next) => {
       designStatus: 'pending'
     };
 
-    // Set content writer if provided
+    // Set Content Planner if provided
     if (assignedContentWriter) {
       newCreativeData.assignedContentWriter = assignedContentWriter;
       newCreativeData.contentAssignedAt = new Date();
@@ -353,7 +353,7 @@ exports.addCreative = async (req, res, next) => {
       creativeStrategy.stages[stageIndex].creatives.length - 1
     ];
 
-    // Auto-create content writing task if content writer assigned
+    // Auto-create content writing task if Content Planner assigned
     if (assignedContentWriter) {
       await Task.create({
         projectId,

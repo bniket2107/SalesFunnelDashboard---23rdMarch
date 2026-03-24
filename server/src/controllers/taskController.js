@@ -22,6 +22,15 @@ const {
 // Helper to check project access
 const checkProjectAccess = async (projectId, user) => {
   const project = await Project.findById(projectId)
+    // New array fields
+    .populate('assignedTeam.performanceMarketers', '_id name')
+    .populate('assignedTeam.contentWriters', '_id name')
+    .populate('assignedTeam.uiUxDesigners', '_id name')
+    .populate('assignedTeam.graphicDesigners', '_id name')
+    .populate('assignedTeam.videoEditors', '_id name')
+    .populate('assignedTeam.developers', '_id name')
+    .populate('assignedTeam.testers', '_id name')
+    // Legacy single fields
     .populate('assignedTeam.performanceMarketer', '_id name')
     .populate('assignedTeam.contentCreator', '_id name')
     .populate('assignedTeam.contentWriter', '_id name')
@@ -38,9 +47,29 @@ const checkProjectAccess = async (projectId, user) => {
   const userId = user._id.toString();
   const isAdmin = user.role === 'admin';
   const isCreator = project.createdBy?.toString() === userId;
-  const isAssigned = Object.values(project.assignedTeam || {}).some(
-    member => member?._id?.toString() === userId
-  );
+
+  // Helper to check if user is in an array
+  const isInArray = (arr) => arr && Array.isArray(arr) && arr.some(member => member?._id?.toString() === userId || member?.toString() === userId);
+
+  // Check if user is assigned to the team (both new array fields and legacy single fields)
+  const isAssigned =
+    // New array fields
+    isInArray(project.assignedTeam?.performanceMarketers) ||
+    isInArray(project.assignedTeam?.contentWriters) ||
+    isInArray(project.assignedTeam?.uiUxDesigners) ||
+    isInArray(project.assignedTeam?.graphicDesigners) ||
+    isInArray(project.assignedTeam?.videoEditors) ||
+    isInArray(project.assignedTeam?.developers) ||
+    isInArray(project.assignedTeam?.testers) ||
+    // Legacy single fields
+    project.assignedTeam?.performanceMarketer?._id?.toString() === userId ||
+    project.assignedTeam?.contentCreator?._id?.toString() === userId ||
+    project.assignedTeam?.contentWriter?._id?.toString() === userId ||
+    project.assignedTeam?.uiUxDesigner?._id?.toString() === userId ||
+    project.assignedTeam?.graphicDesigner?._id?.toString() === userId ||
+    project.assignedTeam?.videoEditor?._id?.toString() === userId ||
+    project.assignedTeam?.developer?._id?.toString() === userId ||
+    project.assignedTeam?.tester?._id?.toString() === userId;
 
   if (!isAdmin && !isCreator && !isAssigned) {
     return { project: null, error: { status: 403, message: 'Not authorized to access this project' } };
@@ -289,7 +318,7 @@ exports.updateTask = async (req, res, next) => {
       // When submitted for review, assign to the specific tester
       // IMPORTANT: Preserve originalAssignedTo so the original creator can still see their tasks
       if (status === 'content_submitted') {
-        // Preserve the original content writer for history
+        // Preserve the original Content Planner for history
         if (!task.originalAssignedTo && task.assignedTo) {
           task.originalAssignedTo = task.assignedTo;
         }
@@ -320,7 +349,7 @@ exports.updateTask = async (req, res, next) => {
       // When rejected, assign back to original role
       else if (status === 'content_rejected') {
         task.assignedRole = 'content_writer';
-        // Re-assign to original content writer (from the task's creator info)
+        // Re-assign to original Content Planner (from the task's creator info)
         // The task should be assigned back to whoever created the content
       } else if (status === 'design_rejected') {
         // Assign to appropriate designer based on task type
@@ -608,11 +637,11 @@ exports.testerReview = async (req, res, next) => {
         .populate('assignedTeam.developer', '_id name');
 
       if (task.status === 'content_submitted') {
-        // Content rejected - assign back to content writer
+        // Content rejected - assign back to Content Planner
         newStatus = 'content_rejected';
         task.assignedRole = 'content_writer';
 
-        // Find the content writer from project team
+        // Find the Content Planner from project team
         const contentWriter = project?.assignedTeam?.contentWriters?.[0] ||
                               project?.assignedTeam?.contentWriter;
         if (contentWriter) {
@@ -1312,7 +1341,7 @@ exports.assignTask = async (req, res, next) => {
     task.assignedTo = assignedTo || null;
     if (assignedRole) task.assignedRole = assignedRole;
 
-    // Set originalAssignedTo if this is the first assignment (for content writers, designers, developers)
+    // Set originalAssignedTo if this is the first assignment (for Content Planners, designers, developers)
     // This ensures the original assignee can still see their tasks after submission
     if (!task.originalAssignedTo && assignedTo) {
       task.originalAssignedTo = assignedTo;
@@ -2319,7 +2348,7 @@ exports.getTaskStats = async (req, res, next) => {
     };
 
     if (role === 'content_writer') {
-      // Content writer statistics
+      // Content Planner statistics
       stats.pending = tasks.filter(t =>
         ['todo', 'in_progress', 'content_pending'].includes(t.status)
       ).length;

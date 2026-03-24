@@ -26,7 +26,7 @@ const ROLE_CONFIG = {
   content_writer: {
     icon: FileText,
     color: 'emerald',
-    title: 'Content Writer Dashboard',
+    title: 'Content Planner Dashboard',
     taskTypes: ['content_creation'],
     actions: ['view_tasks', 'submit_content']
   },

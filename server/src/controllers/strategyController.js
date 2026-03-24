@@ -17,6 +17,15 @@ exports.getCompleteStrategy = async (req, res, next) => {
 
     const project = await Project.findById(projectId)
       .populate('createdBy', 'name email')
+      // New array fields
+      .populate('assignedTeam.performanceMarketers', 'name email specialization')
+      .populate('assignedTeam.contentWriters', 'name email specialization')
+      .populate('assignedTeam.uiUxDesigners', 'name email specialization')
+      .populate('assignedTeam.graphicDesigners', 'name email specialization')
+      .populate('assignedTeam.videoEditors', 'name email specialization')
+      .populate('assignedTeam.developers', 'name email specialization')
+      .populate('assignedTeam.testers', 'name email specialization')
+      // Legacy single fields
       .populate('assignedTeam.performanceMarketer', 'name email specialization')
       .populate('assignedTeam.uiUxDesigner', 'name email specialization')
       .populate('assignedTeam.graphicDesigner', 'name email specialization')

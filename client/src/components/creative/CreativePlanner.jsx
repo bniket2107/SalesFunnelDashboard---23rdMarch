@@ -75,7 +75,7 @@ const createEmptyCreative = () => ({
   screenSizes: [],
   assignedRole: '',
   assignedTeamMembers: [],
-  contentWriter: '', // NEW: Content Writer assigned to this creative
+  contentWriter: '', // NEW: Content Planner assigned to this creative
   adIntent: '', // NEW: Ad intent (e.g., "UGC ads, testimonial ads")
   notes: ''
 });
@@ -131,7 +131,7 @@ export default function CreativePlanner({
           screenSizes: item.screenSizes || [],
           assignedRole: item.assignedRole || '',
           assignedTeamMembers: item.assignedTeamMembers || [],
-          contentWriter: item.contentWriter || '', // NEW: Load content writer
+          contentWriter: item.contentWriter || '', // NEW: Load Content Planner
           adIntent: item.adIntent || '', // NEW: Load ad intent
           notes: item.notes || ''
         }));
@@ -301,7 +301,7 @@ export default function CreativePlanner({
     return assignedMembers;
   };
 
-  // Get content writers from project assigned team
+  // Get Content Planners from project assigned team
   const getContentWriters = () => {
     console.log('=== getContentWriters called ===');
     console.log('projectAssignedTeam:', projectAssignedTeam);
@@ -340,7 +340,7 @@ export default function CreativePlanner({
           }
         }
       });
-      console.log(`Found ${contentWriters.length} content writers from array field`);
+      console.log(`Found ${contentWriters.length} Content Planners from array field`);
     }
 
     // Fall back to legacy field if no array field data
@@ -355,14 +355,14 @@ export default function CreativePlanner({
             _id: legacyField._id?.toString?.() || legacyField._id || String(legacyField),
             name: legacyField.name || 'Unknown'
           });
-          console.log('Found 1 content writer from legacy field (object)');
+          console.log('Found 1 Content Planner from legacy field (object)');
         } else if (typeof legacyField === 'string') {
           // ObjectId string
           contentWriters.push({
             _id: legacyField,
             name: 'Team Member'
           });
-          console.log('Found 1 content writer from legacy field (string)');
+          console.log('Found 1 Content Planner from legacy field (string)');
         }
       }
     }
@@ -371,7 +371,7 @@ export default function CreativePlanner({
     return contentWriters;
   };
 
-  // Memoize content writers to avoid recalculating on every render
+  // Memoize Content Planners to avoid recalculating on every render
   const availableContentWriters = useMemo(() => {
     return getContentWriters();
   }, [projectAssignedTeam]);
@@ -410,7 +410,7 @@ export default function CreativePlanner({
           screenSizes: row.screenSizes || [],
           assignedRole: row.assignedRole || '',
           assignedTeamMembers: row.assignedTeamMembers || [],
-          contentWriter: row.contentWriter || '', // NEW: Include content writer
+          contentWriter: row.contentWriter || '', // NEW: Include Content Planner
           adIntent: row.adIntent || '', // NEW: Include ad intent
           notes: row.notes || '',
           name: row.name || `Creative ${index + 1}`,
@@ -700,19 +700,19 @@ export default function CreativePlanner({
                     </div>
                   </div>
 
-                  {/* Row 4.5: Content Writer */}
+                  {/* Row 4.5: Content Planner */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
                         <FileText className="w-4 h-4 text-gray-400" />
-                        Content Writer
+                        Content Planner
                       </label>
                       <select
                         value={row.contentWriter || ''}
                         onChange={(e) => updateCreativeRow(row._id, 'contentWriter', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                       >
-                        <option value="">Select content writer...</option>
+                        <option value="">Select Content Planner...</option>
                         {availableContentWriters.map(writer => (
                           <option key={writer._id} value={writer._id}>
                             {writer.name}
@@ -721,7 +721,7 @@ export default function CreativePlanner({
                       </select>
                       {availableContentWriters.length === 0 && (
                         <p className="text-xs text-amber-600 mt-1">
-                          ⚠️ No content writers assigned to project. Contact Admin.
+                          ⚠️ No Content Planners assigned to project. Contact Admin.
                         </p>
                       )}
                     </div>
@@ -730,7 +730,7 @@ export default function CreativePlanner({
                         &nbsp;
                       </label>
                       <p className="text-xs text-gray-500 italic">
-                        The content writer creates the copy/text for this creative.
+                        The Content Planner creates the copy/text for this creative.
                         Select from writers assigned to the project by Admin.
                       </p>
                     </div>

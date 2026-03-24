@@ -240,7 +240,7 @@ const creativePlanItemSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
-  // Content Writer assigned to this creative (from project's content writers)
+  // Content Planner assigned to this creative (from project's Content Planners)
   contentWriter: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

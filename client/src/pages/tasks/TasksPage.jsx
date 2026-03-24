@@ -22,7 +22,7 @@ const TASK_TYPES = [
 // Role-specific status filters
 // Only show statuses that are relevant and meaningful for each role
 const ROLE_STATUSES = {
-  // Content writers: see content workflow statuses
+  // Content Planners: see content workflow statuses
   content_writer: ['content_pending', 'content_submitted', 'content_final_approved', 'content_rejected'],
   content_creator: ['content_pending', 'content_submitted', 'content_final_approved', 'content_rejected'],
   // Designers/Video Editors: see design workflow statuses
