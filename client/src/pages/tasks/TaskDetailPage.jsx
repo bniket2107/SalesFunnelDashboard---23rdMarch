@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardBody, CardHeader, Button, Spinner, Badge } from '@/components/ui';
-import { taskService, promptService, aiService } from '@/services/api';
+import { taskService, promptService, aiService, frameworkCategoryService } from '@/services/api';
 import {
   ClipboardList, Play, Send, CheckCircle, XCircle, Clock,
   FileText, ExternalLink, Upload, X, FileIcon, Video, Image,
@@ -64,6 +64,7 @@ export default function TaskDetailPage() {
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [generatingPrompt, setGeneratingPrompt] = useState(false);
   const [showGeneratedPrompt, setShowGeneratedPrompt] = useState(false);
+  const [subCategories, setSubCategories] = useState([]); // All subcategories
 
   // AI Content Brief state
   const [aiFrameworks, setAiFrameworks] = useState([]);
@@ -120,8 +121,19 @@ export default function TaskDetailPage() {
   useEffect(() => {
     if (user?.role === 'content_writer') {
       fetchAIFrameworks();
+      fetchSubCategories();
     }
   }, [user]);
+
+  // Fetch subcategories for content writers
+  const fetchSubCategories = async () => {
+    try {
+      const response = await frameworkCategoryService.getFrameworkCategories();
+      setSubCategories(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch subcategories:', error);
+    }
+  };
 
   // Set initial AI brief and framework from task
   useEffect(() => {
@@ -1516,6 +1528,25 @@ export default function TaskDetailPage() {
                     </dd>
                   </div>
                 )}
+                {/* Show Framework and Subcategory for content writer tasks */}
+                {user?.role === 'content_writer' && task.contentFramework && (
+                  <div className="col-span-2">
+                    <dt className="text-xs font-medium text-gray-500 uppercase flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-purple-500" />
+                      Framework
+                    </dt>
+                    <dd className="mt-1 text-gray-900">
+                      <span className="inline-flex items-center px-2 py-1 rounded-md bg-purple-50 text-purple-700 text-sm font-medium">
+                        {task.contentFramework}
+                        {task.contentSubCategory && (
+                          <span className="ml-2 text-purple-500">
+                            → {subCategories.find(c => c.key === task.contentSubCategory && c.frameworkType === task.contentFramework)?.displayName || task.contentSubCategory}
+                          </span>
+                        )}
+                      </span>
+                    </dd>
+                  </div>
+                )}
               </dl>
             </CardBody>
           </Card>
@@ -1549,38 +1580,146 @@ export default function TaskDetailPage() {
                         <Spinner size="sm" />
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {prompts.map((prompt) => (
-                          <button
-                            key={prompt._id}
-                            onClick={() => setSelectedPrompt(prompt)}
-                            className={`w-full text-left p-3 rounded-lg border transition-all ${
-                              selectedPrompt?._id === prompt._id
-                                ? 'border-primary-500 bg-primary-50'
-                                : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className="font-medium text-sm text-gray-900">{prompt.title}</div>
-                            <div className="flex gap-2 mt-1 flex-wrap">
-                              {prompt.frameworkType && (
-                                <span className="text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                  <Sparkles className="w-3 h-3" />
-                                  {prompt.frameworkType}
-                                </span>
-                              )}
-                              {!prompt.frameworkType && prompt.category && (
-                                <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                                  {prompt.category}
-                                </span>
-                              )}
-                              {prompt.platform && prompt.platform !== 'all' && !prompt.frameworkType && (
-                                <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                                  {prompt.platform}
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                        ))}
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {/* Group prompts by framework for content writers */}
+                        {user?.role === 'content_writer' ? (
+                          (() => {
+                            // Group prompts by framework
+                            const groupedByFramework = prompts
+                              .filter(p => p.frameworkType)
+                              .reduce((acc, prompt) => {
+                                const framework = prompt.frameworkType;
+                                if (!acc[framework]) {
+                                  acc[framework] = { prompts: [], subcategories: {} };
+                                }
+                                acc[framework].prompts.push(prompt);
+                                if (prompt.subCategory) {
+                                  if (!acc[framework].subcategories[prompt.subCategory]) {
+                                    acc[framework].subcategories[prompt.subCategory] = [];
+                                  }
+                                  acc[framework].subcategories[prompt.subCategory].push(prompt);
+                                }
+                                return acc;
+                              }, {});
+
+                            const otherPrompts = prompts.filter(p => !p.frameworkType);
+
+                            return (
+                              <>
+                                {Object.entries(groupedByFramework).map(([framework, data]) => {
+                                  const frameworkPrompts = data.prompts;
+                                  const subcategories = data.subcategories;
+                                  const subcategoryKeys = Object.keys(subcategories);
+                                  const uncategorizedPrompts = frameworkPrompts.filter(p => !p.subCategory);
+
+                                  return (
+                                    <div key={framework} className="border border-gray-200 rounded-lg overflow-hidden">
+                                      <div className="bg-purple-50 px-3 py-2 flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4 text-purple-500" />
+                                        <span className="font-medium text-sm text-purple-700">{framework}</span>
+                                        <span className="text-xs text-purple-500">({frameworkPrompts.length})</span>
+                                      </div>
+
+                                      {/* Subcategories */}
+                                      {subcategoryKeys.length > 0 && subcategoryKeys.map(subKey => {
+                                        const subPrompts = subcategories[subKey] || [];
+                                        const subDetails = subCategories.find(c => c.key === subKey && c.frameworkType === framework);
+
+                                        return (
+                                          <div key={subKey} className="border-t border-gray-200">
+                                            <div className="bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 flex items-center gap-1">
+                                              <span>├</span>
+                                              {subDetails?.displayName || subKey}
+                                              <span className="text-gray-400">({subPrompts.length})</span>
+                                            </div>
+                                            {subPrompts.map((prompt) => (
+                                              <button
+                                                key={prompt._id}
+                                                onClick={() => setSelectedPrompt(prompt)}
+                                                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-all ${
+                                                  selectedPrompt?._id === prompt._id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
+                                                }`}
+                                              >
+                                                <div className="text-gray-700">{prompt.title}</div>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        );
+                                      })}
+
+                                      {/* Uncategorized prompts */}
+                                      {uncategorizedPrompts.length > 0 && (
+                                        <div className="border-t border-gray-200">
+                                          {uncategorizedPrompts.map((prompt) => (
+                                            <button
+                                              key={prompt._id}
+                                              onClick={() => setSelectedPrompt(prompt)}
+                                              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-all ${
+                                                selectedPrompt?._id === prompt._id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
+                                              }`}
+                                            >
+                                              <div className="text-gray-700">{prompt.title}</div>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Other prompts without framework */}
+                                {otherPrompts.length > 0 && (
+                                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                    <div className="bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600">
+                                      Other Prompts
+                                    </div>
+                                    {otherPrompts.map((prompt) => (
+                                      <button
+                                        key={prompt._id}
+                                        onClick={() => setSelectedPrompt(prompt)}
+                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-all border-t border-gray-200 ${
+                                          selectedPrompt?._id === prompt._id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
+                                        }`}
+                                      >
+                                        <div className="text-gray-700">{prompt.title}</div>
+                                        {prompt.category && (
+                                          <span className="text-xs text-gray-500">{prompt.category}</span>
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()
+                        ) : (
+                          // Non-content writers: show simple list
+                          prompts.map((prompt) => (
+                            <button
+                              key={prompt._id}
+                              onClick={() => setSelectedPrompt(prompt)}
+                              className={`w-full text-left p-3 rounded-lg border transition-all ${
+                                selectedPrompt?._id === prompt._id
+                                  ? 'border-primary-500 bg-primary-50'
+                                  : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="font-medium text-sm text-gray-900">{prompt.title}</div>
+                              <div className="flex gap-2 mt-1 flex-wrap">
+                                {!prompt.frameworkType && prompt.category && (
+                                  <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                    {prompt.category}
+                                  </span>
+                                )}
+                                {prompt.platform && prompt.platform !== 'all' && (
+                                  <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                                    {prompt.platform}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          ))
+                        )}
                       </div>
                     )}
 
@@ -1593,6 +1732,11 @@ export default function TaskDetailPage() {
                             <div className="text-xs text-purple-600 mt-1 flex items-center gap-1">
                               <Sparkles className="w-3 h-3" />
                               Framework: {selectedPrompt.frameworkType}
+                              {selectedPrompt.subCategory && (
+                                <span className="ml-2 text-indigo-600">
+                                  → {subCategories.find(c => c.key === selectedPrompt.subCategory && c.frameworkType === selectedPrompt.frameworkType)?.displayName || selectedPrompt.subCategory}
+                                </span>
+                              )}
                             </div>
                           )}
                           {selectedPrompt.description && (

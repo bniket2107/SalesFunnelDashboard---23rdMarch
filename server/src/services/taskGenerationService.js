@@ -878,7 +878,9 @@ function generateCreativePlanTasks(creativePlan, projectId, creativeStrategyId, 
         objective: planItem.objective || '',
         completedBy,
         testerId: testerId, // Tester for content review
-        marketerId: marketerId // Marketer for content approval
+        marketerId: marketerId, // Marketer for content approval
+        contentFramework: planItem.framework || '', // Framework for content planner
+        contentSubCategory: planItem.subCategory || '' // Subcategory for content planner
       });
       contentTask.status = 'content_pending';
       tasks.push(contentTask);
@@ -971,7 +973,9 @@ function createTask({
   completedBy,
   testerId = null,
   marketerId = null,
-  parentTaskId = null
+  parentTaskId = null,
+  contentFramework = '',
+  contentSubCategory = ''
 }) {
   // Generate AI prompt based on strategy context
   const aiPrompt = generateAIPrompt(taskType, assetType, {
@@ -1062,6 +1066,14 @@ function createTask({
   // Assign performance marketer for final approval
   if (marketerId) {
     task.marketerId = marketerId;
+  }
+
+  // Set content framework and subcategory for content writer tasks
+  if (contentFramework) {
+    task.contentFramework = contentFramework;
+  }
+  if (contentSubCategory) {
+    task.contentSubCategory = contentSubCategory;
   }
 
   // Set parent task dependency

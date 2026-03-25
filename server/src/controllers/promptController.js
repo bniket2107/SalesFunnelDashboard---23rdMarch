@@ -1,4 +1,5 @@
 const Prompt = require('../models/Prompt');
+const FrameworkCategory = require('../models/FrameworkCategory');
 const { generateFinalPrompt, checkOllamaHealth } = require('../services/ollamaService');
 const { getFrameworkTemplate, getFrameworkTypes, replaceTemplatePlaceholders } = require('../utils/frameworkTemplates');
 
@@ -7,7 +8,7 @@ const { getFrameworkTemplate, getFrameworkTypes, replaceTemplatePlaceholders } =
 // @access  Private (Admin, Performance Marketer, Content Writer, etc.)
 exports.getPrompts = async (req, res, next) => {
   try {
-    const { role, category, platform, funnelStage, creativeType, isActive, frameworkType } = req.query;
+    const { role, category, platform, funnelStage, creativeType, isActive, frameworkType, subCategory } = req.query;
 
     const query = {};
 
@@ -19,6 +20,11 @@ exports.getPrompts = async (req, res, next) => {
     // Filter by framework type (for content_writer)
     if (frameworkType) {
       query.frameworkType = frameworkType;
+    }
+
+    // Filter by subCategory (optional)
+    if (subCategory) {
+      query.subCategory = subCategory;
     }
 
     // Filter by category (not used for content_writer)
@@ -50,7 +56,7 @@ exports.getPrompts = async (req, res, next) => {
 
     const prompts = await Prompt.find(query)
       .populate('createdBy', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ usageCount: 1, createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -103,6 +109,7 @@ exports.createPrompt = async (req, res, next) => {
       title,
       role,
       frameworkType,
+      subCategory,
       content,
       category,
       platform,
@@ -120,6 +127,17 @@ exports.createPrompt = async (req, res, next) => {
       });
     }
 
+    // Validate subCategory if provided
+    if (subCategory && frameworkType) {
+      const categoryExists = await FrameworkCategory.exists(frameworkType, subCategory);
+      if (!categoryExists) {
+        return res.status(400).json({
+          success: false,
+          message: `SubCategory '${subCategory}' does not exist for framework '${frameworkType}'. Please create it first or use an existing subcategory.`
+        });
+      }
+    }
+
     // If frameworkType is provided, get the template content
     let promptContent = content;
     if (role === 'content_writer' && frameworkType && !content) {
@@ -130,6 +148,7 @@ exports.createPrompt = async (req, res, next) => {
       title,
       role,
       frameworkType: role === 'content_writer' ? frameworkType : undefined,
+      subCategory: subCategory || null,
       content: promptContent,
       // Only include category and platform for non-content_writer roles
       category: role === 'content_writer' ? undefined : (category || 'general'),
@@ -168,6 +187,7 @@ exports.updatePrompt = async (req, res, next) => {
       title,
       role,
       frameworkType,
+      subCategory,
       content,
       category,
       platform,
@@ -187,10 +207,25 @@ exports.updatePrompt = async (req, res, next) => {
       });
     }
 
+    // Validate subCategory if provided
+    const finalFrameworkType = frameworkType !== undefined ? frameworkType : prompt.frameworkType;
+    const finalSubCategory = subCategory !== undefined ? subCategory : prompt.subCategory;
+
+    if (finalSubCategory && finalFrameworkType) {
+      const categoryExists = await FrameworkCategory.exists(finalFrameworkType, finalSubCategory);
+      if (!categoryExists) {
+        return res.status(400).json({
+          success: false,
+          message: `SubCategory '${finalSubCategory}' does not exist for framework '${finalFrameworkType}'. Please create it first or use an existing subcategory.`
+        });
+      }
+    }
+
     // Update fields
     if (title !== undefined) prompt.title = title;
     if (role !== undefined) prompt.role = role;
     if (frameworkType !== undefined) prompt.frameworkType = frameworkType;
+    if (subCategory !== undefined) prompt.subCategory = subCategory || null;
     if (content !== undefined) prompt.content = content;
     // Only update category and platform for non-content_writer roles
     if (category !== undefined && prompt.role !== 'content_writer') prompt.category = category;
@@ -323,9 +358,25 @@ exports.getPromptsByRole = async (req, res, next) => {
 // @desc    Generate AI prompt using Ollama
 // @route   POST /api/prompts/generate
 // @access  Private
+//
+// Request body:
+// - basePromptId: (optional) ID of specific prompt to use
+// - frameworkType: (optional) Framework type to use
+// - subCategory: (optional) Subcategory within framework
+// - context: Object with replacement variables
+//
+// Priority for prompt selection:
+// 1. If basePromptId is provided → use that specific prompt
+// 2. If subCategory is provided → find prompts matching framework + subCategory
+// 3. If no subCategory matches → fallback to framework-only prompts (subCategory = null)
+// 4. If only frameworkType → use framework-only prompts
+//
+// Within matching prompts, selection priority:
+// 1. Lowest usageCount (less used = fresher)
+// 2. Most recent createdAt
 exports.generatePrompt = async (req, res, next) => {
   try {
-    const { basePromptId, frameworkType, context } = req.body;
+    const { basePromptId, frameworkType, subCategory, context } = req.body;
 
     // Validate input
     if (!basePromptId && !context?.basePrompt && !frameworkType) {
@@ -336,19 +387,10 @@ exports.generatePrompt = async (req, res, next) => {
     }
 
     let basePrompt = context?.basePrompt;
+    let promptRecord = null;
+    let isFallback = false;
 
-    // If frameworkType is provided, get the framework template
-    if (frameworkType && !basePromptId) {
-      basePrompt = getFrameworkTemplate(frameworkType);
-      if (!basePrompt) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid framework type'
-        });
-      }
-    }
-
-    // If basePromptId is provided, fetch from database
+    // If basePromptId is provided, use it directly (highest priority)
     if (basePromptId) {
       const prompt = await Prompt.findById(basePromptId);
 
@@ -367,13 +409,87 @@ exports.generatePrompt = async (req, res, next) => {
       }
 
       basePrompt = prompt.content;
+      promptRecord = prompt;
 
       // Increment usage count
       await prompt.incrementUsage();
     }
+    // If frameworkType is provided (with or without subCategory)
+    else if (frameworkType) {
+      // If subCategory is provided, try to find matching prompts
+      if (subCategory) {
+        // Find prompts matching framework + subCategory
+        const matchingPrompts = await Prompt.find({
+          frameworkType,
+          subCategory,
+          isActive: true
+        }).sort({ usageCount: 1, createdAt: -1 });
+
+        if (matchingPrompts.length > 0) {
+          // Select prompt with lowest usage count
+          const selectedPrompt = selectBestPrompt(matchingPrompts);
+          basePrompt = selectedPrompt.content;
+          promptRecord = selectedPrompt;
+          await selectedPrompt.incrementUsage();
+        } else {
+          // Fallback to framework-only prompts (subCategory = null or undefined)
+          const fallbackPrompts = await Prompt.find({
+            frameworkType,
+            $or: [
+              { subCategory: null },
+              { subCategory: { $exists: false } }
+            ],
+            isActive: true
+          }).sort({ usageCount: 1, createdAt: -1 });
+
+          if (fallbackPrompts.length > 0) {
+            const selectedPrompt = selectBestPrompt(fallbackPrompts);
+            basePrompt = selectedPrompt.content;
+            promptRecord = selectedPrompt;
+            isFallback = true;
+            await selectedPrompt.incrementUsage();
+          } else {
+            // No prompts found, use framework template
+            basePrompt = getFrameworkTemplate(frameworkType);
+            if (!basePrompt) {
+              return res.status(400).json({
+                success: false,
+                message: 'Invalid framework type and no prompts found'
+              });
+            }
+          }
+        }
+      } else {
+        // No subCategory, find framework-only prompts
+        const frameworkPrompts = await Prompt.find({
+          frameworkType,
+          $or: [
+            { subCategory: null },
+            { subCategory: { $exists: false } }
+          ],
+          isActive: true
+        }).sort({ usageCount: 1, createdAt: -1 });
+
+        if (frameworkPrompts.length > 0) {
+          const selectedPrompt = selectBestPrompt(frameworkPrompts);
+          basePrompt = selectedPrompt.content;
+          promptRecord = selectedPrompt;
+          await selectedPrompt.incrementUsage();
+        } else {
+          // No prompts found, use framework template
+          basePrompt = getFrameworkTemplate(frameworkType);
+          if (!basePrompt) {
+            return res.status(400).json({
+              success: false,
+              message: 'Invalid framework type and no prompts found'
+            });
+          }
+        }
+      }
+    }
 
     // Replace placeholders in framework template
-    if (frameworkType || basePromptId) {
+    if (frameworkType || basePromptId || subCategory) {
       basePrompt = replaceTemplatePlaceholders(basePrompt, {
         problem: context?.problem || '',
         audience: context?.audience || '',
@@ -411,12 +527,23 @@ exports.generatePrompt = async (req, res, next) => {
       }
     });
 
-    res.status(200).json({
+    const response = {
       success: true,
       data: {
         finalPrompt
       }
-    });
+    };
+
+    // Include metadata about prompt selection if a prompt was used
+    if (promptRecord) {
+      response.data.promptId = promptRecord._id;
+      response.data.promptTitle = promptRecord.title;
+      response.data.frameworkType = promptRecord.frameworkType;
+      response.data.subCategory = promptRecord.subCategory;
+      response.data.isFallback = isFallback;
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     console.error('Error generating prompt:', error);
 
@@ -432,6 +559,28 @@ exports.generatePrompt = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Helper function to select the best prompt from a list
+ * Priority: lowest usageCount (less used = fresher) > most recent
+ */
+function selectBestPrompt(prompts) {
+  if (prompts.length === 0) return null;
+  if (prompts.length === 1) return prompts[0];
+
+  // Sort by usageCount (asc), then createdAt (desc)
+  const sorted = [...prompts].sort((a, b) => {
+    // Lower usage count first
+    const usageDiff = (a.usageCount || 0) - (b.usageCount || 0);
+    if (usageDiff !== 0) return usageDiff;
+
+    // Most recent first (createdAt desc)
+    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+  });
+
+  // Return the lowest usage, most recent prompt
+  return sorted[0];
+}
 
 // @desc    Get available framework types
 // @route   GET /api/prompts/frameworks

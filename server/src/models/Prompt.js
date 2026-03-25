@@ -47,6 +47,18 @@ const promptSchema = new mongoose.Schema({
     }
   },
 
+  // SubCategory within the framework (Optional)
+  // Allows for more granular organization of prompts
+  // Example: For PAS framework, subCategory could be 'problem_hook', 'pain_point', etc.
+  // If not provided, the prompt is considered a "framework-level" prompt (backward compatible)
+  subCategory: {
+    type: String,
+    default: null,
+    trim: true,
+    // This is the key from FrameworkCategory model
+    // Must match a FrameworkCategory.key for the given frameworkType
+  },
+
   // The prompt content (base prompt template)
   content: {
     type: String,
@@ -107,11 +119,17 @@ const promptSchema = new mongoose.Schema({
     default: true
   },
 
+  // System prompt (cannot be deleted by admins)
+  isSystem: {
+    type: Boolean,
+    default: false
+  },
+
   // Created by (admin)
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false // Not required for system prompts
   },
 
   // Timestamps
@@ -128,6 +146,8 @@ const promptSchema = new mongoose.Schema({
 // Index for efficient queries
 promptSchema.index({ role: 1, isActive: 1 });
 promptSchema.index({ frameworkType: 1 });
+promptSchema.index({ frameworkType: 1, subCategory: 1 }); // For subcategory lookups
+promptSchema.index({ frameworkType: 1, subCategory: 1, isActive: 1 }); // For prompt selection
 promptSchema.index({ category: 1, platform: 1 });
 promptSchema.index({ funnelStage: 1, creativeType: 1 });
 
@@ -142,12 +162,54 @@ promptSchema.statics.getByFilters = function(filters = {}) {
 
   if (filters.role) query.role = filters.role;
   if (filters.frameworkType) query.frameworkType = filters.frameworkType;
+  if (filters.subCategory) query.subCategory = filters.subCategory;
   if (filters.category) query.category = filters.category;
   if (filters.platform) query.platform = { $in: [filters.platform, 'all'] };
   if (filters.funnelStage) query.funnelStage = { $in: [filters.funnelStage, 'all'] };
   if (filters.creativeType) query.creativeType = { $in: [filters.creativeType, 'all'] };
 
-  return this.find(query).sort({ createdAt: -1 });
+  return this.find(query).sort({ usageCount: 1, createdAt: -1 });
+};
+
+// Static method to get prompts for generation with fallback logic
+// Priority: subCategory specific > framework-only (subCategory = null)
+promptSchema.statics.getForGeneration = async function(frameworkType, subCategory = null) {
+  if (subCategory) {
+    // Try to find prompts with the specific subCategory
+    const specificPrompts = await this.find({
+      frameworkType,
+      subCategory,
+      isActive: true
+    }).sort({ usageCount: 1, createdAt: -1 });
+
+    if (specificPrompts.length > 0) {
+      return { prompts: specificPrompts, isFallback: false };
+    }
+
+    // Fallback to framework-only prompts (subCategory = null)
+    const fallbackPrompts = await this.find({
+      frameworkType,
+      $or: [
+        { subCategory: null },
+        { subCategory: { $exists: false } }
+      ],
+      isActive: true
+    }).sort({ usageCount: 1, createdAt: -1 });
+
+    return { prompts: fallbackPrompts, isFallback: true };
+  }
+
+  // No subCategory specified, get framework-only prompts
+  const frameworkPrompts = await this.find({
+    frameworkType,
+    $or: [
+      { subCategory: null },
+      { subCategory: { $exists: false } }
+    ],
+    isActive: true
+  }).sort({ usageCount: 1, createdAt: -1 });
+
+  return { prompts: frameworkPrompts, isFallback: false };
 };
 
 // Increment usage count

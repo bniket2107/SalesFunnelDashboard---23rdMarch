@@ -3,9 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { promptService } from '@/services/api';
+import { promptService, frameworkCategoryService } from '@/services/api';
 import { Card, CardBody, Button, Input, Modal } from '@/components/ui';
-import { PenTool, Plus, Edit2, Trash2, X, Search, Power, Eye, Cpu, Sparkles, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
+import { PenTool, Plus, Edit2, Trash2, X, Search, Power, Eye, Cpu, Sparkles, ChevronDown, ChevronRight, BookOpen, Tag } from 'lucide-react';
 
 const promptSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -513,6 +513,8 @@ export default function PromptsPage() {
   const [selectedRole, setSelectedRole] = useState('');
   const [selectedFramework, setSelectedFramework] = useState('');
   const [expandedFrameworks, setExpandedFrameworks] = useState({});
+  const [subCategories, setSubCategories] = useState([]); // For modal dropdown
+  const [allSubCategories, setAllSubCategories] = useState([]); // For displaying in framework cards
 
   const {
     register,
@@ -542,6 +544,7 @@ export default function PromptsPage() {
   useEffect(() => {
     fetchPrompts();
     checkOllamaStatus();
+    fetchAllSubCategories();
   }, []);
 
   useEffect(() => {
@@ -560,6 +563,15 @@ export default function PromptsPage() {
     }
   };
 
+  const fetchAllSubCategories = async () => {
+    try {
+      const response = await frameworkCategoryService.getFrameworkCategories();
+      setAllSubCategories(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch all subcategories:', error);
+    }
+  };
+
   const checkOllamaStatus = async () => {
     try {
       const response = await promptService.getOllamaStatus();
@@ -569,15 +581,37 @@ export default function PromptsPage() {
     }
   };
 
+  const fetchSubCategories = async (frameworkType) => {
+    try {
+      const response = await frameworkCategoryService.getCategoriesByFramework(frameworkType);
+      setSubCategories(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch subcategories:', error);
+      setSubCategories([]);
+    }
+  };
+
   // Group prompts by framework for Content Planner
   const groupedByFramework = prompts
     .filter(p => p.role === 'content_writer' && p.frameworkType)
     .reduce((acc, prompt) => {
       const framework = prompt.frameworkType;
       if (!acc[framework]) {
-        acc[framework] = [];
+        acc[framework] = {
+          prompts: [],
+          subcategories: {}
+        };
       }
-      acc[framework].push(prompt);
+      acc[framework].prompts.push(prompt);
+
+      // Also group by subcategory if present
+      if (prompt.subCategory) {
+        if (!acc[framework].subcategories[prompt.subCategory]) {
+          acc[framework].subcategories[prompt.subCategory] = [];
+        }
+        acc[framework].subcategories[prompt.subCategory].push(prompt);
+      }
+
       return acc;
     }, {});
 
@@ -607,10 +641,12 @@ export default function PromptsPage() {
   const openAddModal = () => {
     setEditingPrompt(null);
     setSelectedFramework('');
+    setSubCategories([]); // Clear subcategories
     reset({
       title: '',
       role: '',
       frameworkType: '',
+      subCategory: '',
       content: '',
       category: 'general',
       platform: 'all',
@@ -626,10 +662,15 @@ export default function PromptsPage() {
     setEditingPrompt(prompt);
     setSelectedRole(prompt.role);
     setSelectedFramework(prompt.frameworkType || '');
+    // Fetch subcategories if framework is set
+    if (prompt.frameworkType) {
+      fetchSubCategories(prompt.frameworkType);
+    }
     reset({
       title: prompt.title || '',
       role: prompt.role || '',
       frameworkType: prompt.frameworkType || '',
+      subCategory: prompt.subCategory || '',
       content: prompt.content || '',
       category: prompt.category || 'general',
       platform: prompt.platform || 'all',
@@ -644,6 +685,14 @@ export default function PromptsPage() {
   const handleFrameworkChange = (frameworkType) => {
     setSelectedFramework(frameworkType);
     setValue('frameworkType', frameworkType);
+    setValue('subCategory', ''); // Reset subcategory when framework changes
+
+    // Fetch subcategories for the selected framework
+    if (frameworkType) {
+      fetchSubCategories(frameworkType);
+    } else {
+      setSubCategories([]);
+    }
 
     // Auto-fill the content with framework template
     if (frameworkType && frameworkTemplates[frameworkType]) {
@@ -837,7 +886,13 @@ export default function PromptsPage() {
               </h3>
 
               {/* Frameworks with prompts */}
-              {Object.entries(groupedByFramework).map(([framework, frameworkPrompts]) => (
+              {Object.entries(groupedByFramework).map(([framework, data]) => {
+                const frameworkPrompts = data.prompts || data;
+                const subcategories = data.subcategories || {};
+                const subcategoryKeys = Object.keys(subcategories);
+                const uncategorizedPrompts = frameworkPrompts.filter(p => !p.subCategory);
+
+                return (
                 <Card key={framework} className="overflow-hidden">
                   <button
                     onClick={() => toggleFramework(framework)}
@@ -849,6 +904,11 @@ export default function PromptsPage() {
                         <div className="font-medium text-gray-900">{getFrameworkLabel(framework)}</div>
                         <div className="text-sm text-gray-500">
                           {frameworkPrompts.length} prompt{frameworkPrompts.length !== 1 ? 's' : ''}
+                          {subcategoryKeys.length > 0 && (
+                            <span className="ml-2 text-purple-600">
+                              • {subcategoryKeys.length} subcategor{subcategoryKeys.length !== 1 ? 'ies' : 'y'}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -860,66 +920,114 @@ export default function PromptsPage() {
                   </button>
 
                   {expandedFrameworks[framework] && (
-                    <div className="p-4 space-y-3">
-                      {frameworkPrompts.map((prompt) => (
-                        <div
-                          key={prompt._id}
-                          className={`p-4 rounded-lg border transition-all ${
-                            !prompt.isActive ? 'opacity-60 bg-gray-50' : 'bg-white'
-                          } ${editingPrompt?._id === prompt._id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-primary-300'}`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-gray-900">{prompt.title}</h4>
-                              <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                                {prompt.description || prompt.content.substring(0, 100)}...
-                              </p>
-                              <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                                <span>Used {prompt.usageCount || 0} times</span>
-                                {prompt.isActive ? (
-                                  <span className="text-green-500">Active</span>
-                                ) : (
-                                  <span className="text-gray-400">Inactive</span>
-                                )}
+                    <div className="p-4">
+                      {/* Subcategory Groups */}
+                      {subcategoryKeys.length > 0 && (
+                        <div className="space-y-4 mb-4">
+                          {subcategoryKeys.map(subKey => {
+                            const subPrompts = subcategories[subKey] || [];
+                            const subDetails = allSubCategories.find(c => c.key === subKey && c.frameworkType === framework);
+                            return (
+                              <div key={subKey} className="border-l-2 border-indigo-200 pl-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Tag className="w-4 h-4 text-indigo-500" />
+                                  <h5 className="text-sm font-medium text-indigo-700">
+                                    {subDetails?.displayName || subKey}
+                                  </h5>
+                                  <span className="text-xs text-gray-400">
+                                    {subPrompts.length} prompt{subPrompts.length !== 1 ? 's' : ''}
+                                  </span>
+                                  {subDetails?.isSystem && (
+                                    <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">Default</span>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  {subPrompts.map((prompt) => (
+                                    <div
+                                      key={prompt._id}
+                                      className={`p-3 rounded-lg border transition-all ${
+                                        !prompt.isActive ? 'opacity-60 bg-gray-50' : 'bg-white'
+                                      } ${editingPrompt?._id === prompt._id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-primary-300'}`}
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1 min-w-0">
+                                          <h6 className="font-medium text-gray-900 text-sm truncate">{prompt.title}</h6>
+                                          <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+                                            {prompt.description || prompt.content.substring(0, 80)}...
+                                          </p>
+                                          <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                                            <span>Used {prompt.usageCount || 0}x</span>
+                                            {prompt.isActive ? (
+                                              <span className="text-green-500">Active</span>
+                                            ) : (
+                                              <span>Inactive</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex gap-1">
+                                          <button onClick={() => setViewPrompt(prompt)} className="p-1 text-gray-400 hover:text-primary-600 rounded" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                                          <button onClick={() => openEditModal(prompt)} className="p-1 text-gray-400 hover:text-primary-600 rounded" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                                          <button onClick={() => handleToggleActive(prompt)} className={`p-1 rounded ${prompt.isActive ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`} title={prompt.isActive ? 'Deactivate' : 'Activate'}><Power className="w-3.5 h-3.5" /></button>
+                                          <button onClick={() => setDeleteConfirm(prompt)} className="p-1 text-gray-400 hover:text-red-600 rounded" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Uncategorized Prompts (no subCategory) */}
+                      {uncategorizedPrompts.length > 0 && (
+                        <div className={subcategoryKeys.length > 0 ? 'border-t border-gray-200 pt-4' : ''}>
+                          {subcategoryKeys.length > 0 && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-sm font-medium text-gray-600">Framework-level Prompts</span>
+                              <span className="text-xs text-gray-400">{uncategorizedPrompts.length}</span>
                             </div>
-                            <div className="flex gap-1 ml-2">
-                              <button
-                                onClick={() => setViewPrompt(prompt)}
-                                className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded"
-                                title="View"
+                          )}
+                          <div className="space-y-2">
+                            {uncategorizedPrompts.map((prompt) => (
+                              <div
+                                key={prompt._id}
+                                className={`p-3 rounded-lg border transition-all ${
+                                  !prompt.isActive ? 'opacity-60 bg-gray-50' : 'bg-white'
+                                } ${editingPrompt?._id === prompt._id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-primary-300'}`}
                               >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => openEditModal(prompt)}
-                                className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded"
-                                title="Edit"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleToggleActive(prompt)}
-                                className={`p-1.5 rounded hover:bg-gray-100 ${prompt.isActive ? 'text-green-500 hover:text-green-600' : 'text-gray-400 hover:text-green-500'}`}
-                                title={prompt.isActive ? 'Deactivate' : 'Activate'}
-                              >
-                                <Power className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirm(prompt)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    <h6 className="font-medium text-gray-900 text-sm truncate">{prompt.title}</h6>
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+                                      {prompt.description || prompt.content.substring(0, 80)}...
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                                      <span>Used {prompt.usageCount || 0}x</span>
+                                      {prompt.isActive ? (
+                                        <span className="text-green-500">Active</span>
+                                      ) : (
+                                        <span>Inactive</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <button onClick={() => setViewPrompt(prompt)} className="p-1 text-gray-400 hover:text-primary-600 rounded" title="View"><Eye className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => openEditModal(prompt)} className="p-1 text-gray-400 hover:text-primary-600 rounded" title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => handleToggleActive(prompt)} className={`p-1 rounded ${prompt.isActive ? 'text-green-500' : 'text-gray-400 hover:text-green-500'}`} title={prompt.isActive ? 'Deactivate' : 'Activate'}><Power className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => setDeleteConfirm(prompt)} className="p-1 text-gray-400 hover:text-red-600 rounded" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </Card>
-              ))}
+              );})}
 
               {/* Empty frameworks - show all available frameworks */}
               {frameworkOptions.filter(f => !groupedByFramework[f.value]).length > 0 && (
@@ -1133,6 +1241,31 @@ export default function PromptsPage() {
                         {frameworkOptions.find(f => f.value === selectedFramework)?.description}
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* SubCategory - Optional, only for Content Planner with Framework */}
+                {selectedRole === 'content_writer' && selectedFramework && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Subcategory (Optional)
+                      </label>
+                    </div>
+                    <select
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                      {...register('subCategory')}
+                    >
+                      <option value="">No subcategory (framework-level)</option>
+                      {subCategories.map(cat => (
+                        <option key={cat._id} value={cat.key}>
+                          {cat.displayName}{cat.isSystem ? ' (Default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Subcategories allow more granular prompt organization within a framework.
+                    </p>
                   </div>
                 )}
 

@@ -4,7 +4,7 @@ import { Card, CardBody, CardHeader, Button, Textarea, Badge } from '@/component
 import {
   Image, Video, Layout, Plus, Trash2, ChevronDown, ChevronUp, CheckCircle, FileImage,
   Target, Type, Monitor, Users, FileText, Megaphone, TrendingUp, Zap, Eye, MousePointer,
-  UserPlus, Send, DollarSign
+  UserPlus, Send, DollarSign, Sparkles
 } from 'lucide-react';
 import {
   CREATIVE_TYPES,
@@ -14,6 +14,7 @@ import {
   getSubTypesForCreativeType,
   getRoleLabel
 } from '@/constants/creativeTypes';
+import { frameworkCategoryService } from '@/services/api';
 
 // Icon mapping for creative types
 const CREATIVE_TYPE_ICONS = {
@@ -77,8 +78,31 @@ const createEmptyCreative = () => ({
   assignedTeamMembers: [],
   contentWriter: '', // NEW: Content Planner assigned to this creative
   adIntent: '', // NEW: Ad intent (e.g., "UGC ads, testimonial ads")
+  framework: '', // NEW: Framework for content planner
+  subCategory: '', // NEW: Subcategory for the framework
   notes: ''
 });
+
+// Framework options for content planner
+const FRAMEWORK_OPTIONS = [
+  { value: 'PAS', label: 'PAS - Problem-Agitate-Solution', description: 'Identify problem, amplify pain, present solution' },
+  { value: 'AIDA', label: 'AIDA - Attention-Interest-Desire-Action', description: 'Classic marketing framework for conversions' },
+  { value: 'BAB', label: 'BAB - Before-After-Bridge', description: 'Show transformation from pain to pleasure' },
+  { value: '4C', label: '4C - Clear-Concise-Compelling-Credible', description: 'Clear communication framework' },
+  { value: 'STORY', label: 'STORY - Storytelling Framework', description: 'Hook-Relate-Educate-Stimulate-Transition' },
+  { value: 'DIRECT_RESPONSE', label: 'Direct Response', description: 'Headline-Offer-CTA focused copy' },
+  { value: 'HOOKS', label: 'Hook Generator', description: 'Generate multiple scroll-stopping hooks' },
+  { value: 'OBJECTION', label: 'Objection Handling', description: 'Acknowledge-Isolate-Reframe-Prove-Overcome' },
+  { value: 'PASTOR', label: 'PASTOR - Problem-Amplify-Story-Testimony-Offer-Response', description: 'Complete persuasion framework' },
+  { value: 'QUEST', label: 'QUEST - Qualify-Understand-Educate-Stimulate-Transition', description: 'Nurturing content framework' },
+  { value: 'ACCA', label: 'ACCA - Awareness-Comparison-Consideration-Action', description: 'Consideration stage framework' },
+  { value: 'FAB', label: 'FAB - Features-Advantages-Benefits', description: 'Transform features into emotional benefits' },
+  { value: '5A', label: '5A - Aware-Appeal-Ask-Act-Assess', description: 'Engagement-focused framework' },
+  { value: 'SLAP', label: 'SLAP - Stop-Look-Act-Purchase', description: 'Quick-conversion framework' },
+  { value: 'HOOK_STORY_OFFER', label: 'Hook-Story-Offer', description: 'Social media content formula' },
+  { value: '4P', label: '4P - Picture-Promise-Prove-Push', description: 'Persuasive copy framework' },
+  { value: 'MASTER', label: 'MASTER - Multi-Framework', description: 'Intelligent combination of frameworks' },
+];
 
 // Map role keys to project assignedTeam fields
 const ROLE_TO_TEAM_FIELD = {
@@ -99,6 +123,21 @@ export default function CreativePlanner({
   const [creativePlan, setCreativePlan] = useState([]);
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [expandedCards, setExpandedCards] = useState({});
+  const [subCategories, setSubCategories] = useState([]); // Subcategories for selected framework
+  const [allSubCategories, setAllSubCategories] = useState([]); // All subcategories
+
+  // Fetch all subcategories on mount
+  useEffect(() => {
+    const fetchAllSubCategories = async () => {
+      try {
+        const response = await frameworkCategoryService.getFrameworkCategories();
+        setAllSubCategories(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch subcategories:', error);
+      }
+    };
+    fetchAllSubCategories();
+  }, []);
 
   // Extract project assigned team from project prop - this is the ONLY source of team members
   useEffect(() => {
@@ -133,6 +172,8 @@ export default function CreativePlanner({
           assignedTeamMembers: item.assignedTeamMembers || [],
           contentWriter: item.contentWriter || '', // NEW: Load Content Planner
           adIntent: item.adIntent || '', // NEW: Load ad intent
+          framework: item.framework || '', // NEW: Load framework
+          subCategory: item.subCategory || '', // NEW: Load subcategory
           notes: item.notes || ''
         }));
         setCreativePlan(migratedPlan);
@@ -194,9 +235,20 @@ export default function CreativePlanner({
           console.log(`Role changed to "${value}", cleared team member selection for manual assignment`);
         }
 
+        // Reset subCategory when framework changes
+        if (field === 'framework') {
+          updatedRow.subCategory = '';
+        }
+
         return updatedRow;
       })
     );
+  };
+
+  // Get subcategories for a specific framework
+  const getSubCategoriesForFramework = (frameworkType) => {
+    if (!frameworkType) return [];
+    return allSubCategories.filter(c => c.frameworkType === frameworkType);
   };
 
   // Handle screen size toggle
@@ -412,6 +464,8 @@ export default function CreativePlanner({
           assignedTeamMembers: row.assignedTeamMembers || [],
           contentWriter: row.contentWriter || '', // NEW: Include Content Planner
           adIntent: row.adIntent || '', // NEW: Include ad intent
+          framework: row.framework || '', // NEW: Include framework
+          subCategory: row.subCategory || '', // NEW: Include subcategory
           notes: row.notes || '',
           name: row.name || `Creative ${index + 1}`,
           order: index,
@@ -735,6 +789,56 @@ export default function CreativePlanner({
                       </p>
                     </div>
                   </div>
+
+                  {/* Row 4.6: Framework & Subcategory for Content Planner */}
+                  {row.contentWriter && (
+                    <div className="grid grid-cols-2 gap-4 bg-purple-50 p-3 rounded-lg border border-purple-200">
+                      <div>
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                          <Sparkles className="w-4 h-4 text-purple-500" />
+                          Framework
+                        </label>
+                        <select
+                          value={row.framework || ''}
+                          onChange={(e) => updateCreativeRow(row._id, 'framework', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+                        >
+                          <option value="">Select Framework...</option>
+                          {FRAMEWORK_OPTIONS.map(fw => (
+                            <option key={fw.value} value={fw.value}>{fw.label}</option>
+                          ))}
+                        </select>
+                        {row.framework && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {FRAMEWORK_OPTIONS.find(fw => fw.value === row.framework)?.description}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Subcategory <span className="text-gray-400">(Optional)</span>
+                        </label>
+                        <select
+                          value={row.subCategory || ''}
+                          onChange={(e) => updateCreativeRow(row._id, 'subCategory', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+                          disabled={!row.framework}
+                        >
+                          <option value="">No subcategory (framework-level)</option>
+                          {getSubCategoriesForFramework(row.framework).map(cat => (
+                            <option key={cat._id} value={cat.key}>
+                              {cat.displayName}{cat.isSystem ? ' (Default)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {row.framework && getSubCategoriesForFramework(row.framework).length === 0 && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            No subcategories available for this framework
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Row 5: Ad Intent */}
                   <div>

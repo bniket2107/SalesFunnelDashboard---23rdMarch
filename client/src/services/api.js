@@ -264,6 +264,18 @@ export const promptService = {
   getFrameworks: () => api.get('/prompts/frameworks'),
 };
 
+// Framework Category service
+export const frameworkCategoryService = {
+  getCategories: (params) => api.get('/framework-categories', { params }),
+  getCategory: (id) => api.get(`/framework-categories/${id}`),
+  getCategoriesByFramework: (frameworkType) => api.get(`/framework-categories/by-framework/${frameworkType}`),
+  createCategory: (data) => api.post('/framework-categories', data),
+  updateCategory: (id, data) => api.put(`/framework-categories/${id}`, data),
+  deleteCategory: (id) => api.delete(`/framework-categories/${id}`),
+  reactivateCategory: (id) => api.put(`/framework-categories/${id}/reactivate`),
+  checkCategoryExists: (frameworkType, key) => api.get(`/framework-categories/check/${frameworkType}/${key}`),
+};
+
 // AI service
 export const aiService = {
   getFrameworks: () => api.get('/ai/frameworks'),

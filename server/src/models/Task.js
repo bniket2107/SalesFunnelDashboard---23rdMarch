@@ -177,6 +177,20 @@ const taskSchema = new mongoose.Schema({
     ],
     description: 'Framework used to generate the AI prompt'
   },
+  // Content Planner Framework Selection (from creative strategy)
+  contentFramework: {
+    type: String,
+    enum: [
+      'PAS', 'AIDA', 'BAB', '4C', 'STORY', 'DIRECT_RESPONSE',
+      'HOOKS', 'OBJECTION', 'PASTOR', 'QUEST', 'ACCA',
+      'FAB', '5A', 'SLAP', 'HOOK_STORY_OFFER', '4P', 'MASTER'
+    ],
+    description: 'Framework selected by performance marketer for content planner'
+  },
+  contentSubCategory: {
+    type: String,
+    description: 'Subcategory within the framework for content planner'
+  },
   sopReference: {
     type: String,
     description: 'Reference to standard operating procedure document'
