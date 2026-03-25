@@ -879,8 +879,9 @@ function generateCreativePlanTasks(creativePlan, projectId, creativeStrategyId, 
         completedBy,
         testerId: testerId, // Tester for content review
         marketerId: marketerId, // Marketer for content approval
-        contentFramework: planItem.framework || '', // Framework for content planner
-        contentSubCategory: planItem.subCategory || '' // Subcategory for content planner
+        contentFramework: planItem.aiFramework || '', // Framework for content planner
+        contentSubCategory: planItem.aiSubCategory || '', // Subcategory for content planner
+        aiFramework: planItem.aiFramework || '' // AI Framework for all roles
       });
       contentTask.status = 'content_pending';
       tasks.push(contentTask);
@@ -919,7 +920,8 @@ function generateCreativePlanTasks(creativePlan, projectId, creativeStrategyId, 
       objective: planItem.objective || '',
       completedBy,
       testerId: testerId, // Tester for design/video review
-      marketerId: marketerId // Marketer for final approval
+      marketerId: marketerId, // Marketer for final approval
+      aiFramework: planItem.aiFramework || '' // AI Framework for designers/editors
     });
     designTask.status = 'design_pending';
     designTask.description = 'This task will become active after content is approved by the tester.';
@@ -975,7 +977,8 @@ function createTask({
   marketerId = null,
   parentTaskId = null,
   contentFramework = '',
-  contentSubCategory = ''
+  contentSubCategory = '',
+  aiFramework = ''
 }) {
   // Generate AI prompt based on strategy context
   const aiPrompt = generateAIPrompt(taskType, assetType, {
@@ -1074,6 +1077,11 @@ function createTask({
   }
   if (contentSubCategory) {
     task.contentSubCategory = contentSubCategory;
+  }
+
+  // Set AI framework for all task types (content_writer, graphic_designer, video_editor)
+  if (aiFramework) {
+    task.aiFramework = aiFramework;
   }
 
   // Set parent task dependency

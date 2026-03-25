@@ -250,6 +250,17 @@ const creativePlanItemSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // AI Framework for content generation
+  aiFramework: {
+    type: String,
+    enum: ['PAS', 'AIDA', 'BAB', '4C', 'STORY', 'DIRECT_RESPONSE',
+           'HOOKS', 'OBJECTION', 'PASTOR', 'QUEST', 'ACCA',
+           'FAB', '5A', 'SLAP', 'HOOK_STORY_OFFER', '4P', 'MASTER']
+  },
+  // AI Subcategory (if applicable to the framework)
+  aiSubCategory: {
+    type: String
+  },
   // Additional notes
   notes: {
     type: String,

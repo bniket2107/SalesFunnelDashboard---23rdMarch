@@ -105,7 +105,7 @@ exports.createPrompt = async (req, res, next) => {
       });
     }
 
-    const {
+    let {
       title,
       role,
       frameworkType,
@@ -118,6 +118,18 @@ exports.createPrompt = async (req, res, next) => {
       description,
       tags
     } = req.body;
+
+    // Validate and normalize frameworkType - must be a string, not an array
+    if (frameworkType !== undefined && frameworkType !== null) {
+      if (Array.isArray(frameworkType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Framework type must be a single value, not an array. Please select only one framework.'
+        });
+      }
+      // Ensure it's a string
+      frameworkType = String(frameworkType).trim();
+    }
 
     // Validate frameworkType for content_writer role
     if (role === 'content_writer' && !frameworkType) {
@@ -183,7 +195,7 @@ exports.updatePrompt = async (req, res, next) => {
       });
     }
 
-    const {
+    let {
       title,
       role,
       frameworkType,
@@ -197,6 +209,18 @@ exports.updatePrompt = async (req, res, next) => {
       tags,
       isActive
     } = req.body;
+
+    // Validate and normalize frameworkType - must be a string, not an array
+    if (frameworkType !== undefined && frameworkType !== null) {
+      if (Array.isArray(frameworkType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Framework type must be a single value, not an array. Please select only one framework.'
+        });
+      }
+      // Ensure it's a string
+      frameworkType = String(frameworkType).trim();
+    }
 
     const prompt = await Prompt.findById(req.params.id);
 

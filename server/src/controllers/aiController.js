@@ -141,7 +141,7 @@ exports.generateContentBrief = async (req, res, next) => {
 exports.regenerateContentBrief = async (req, res, next) => {
   try {
     const { taskId } = req.params;
-    const { frameworkType } = req.body;
+    const { frameworkType, promptId } = req.body;
 
     // Get the task
     const task = await Task.findById(taskId)
@@ -178,6 +178,17 @@ exports.regenerateContentBrief = async (req, res, next) => {
     // Get the framework template
     const frameworkTemplate = getFrameworkTemplate(framework);
 
+    // Get optional custom prompt
+    let customPrompt = null;
+    if (promptId) {
+      const prompt = await Prompt.findById(promptId);
+      if (prompt && prompt.isActive) {
+        customPrompt = prompt.content;
+        // Increment usage
+        await prompt.incrementUsage();
+      }
+    }
+
     // Build context
     const context = {
       projectName: task.projectId?.projectName || '',
@@ -203,7 +214,7 @@ exports.regenerateContentBrief = async (req, res, next) => {
     // Generate new content brief
     const contentBrief = await generateContentBrief({
       framework,
-      frameworkTemplate,
+      frameworkTemplate: customPrompt || frameworkTemplate,
       context
     });
 

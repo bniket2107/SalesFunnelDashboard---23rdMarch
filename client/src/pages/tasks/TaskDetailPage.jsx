@@ -73,6 +73,11 @@ export default function TaskDetailPage() {
   const [aiBrief, setAiBrief] = useState('');
   const [showFrameworkSelector, setShowFrameworkSelector] = useState(false);
 
+  // Prompt Template search state
+  const [promptSearchTerm, setPromptSearchTerm] = useState('');
+  const [showPromptDropdown, setShowPromptDropdown] = useState(false);
+  const promptDropdownRef = useRef(null);
+
   // Get the back URL from location state, default based on user role
   const getBackUrl = () => {
     // If we have a 'from' state, use it
@@ -112,20 +117,31 @@ export default function TaskDetailPage() {
 
   // Fetch prompts when task is loaded
   useEffect(() => {
-    if (task && user && ['content_writer', 'graphic_designer', 'video_editor', 'ui_ux_designer'].includes(user.role)) {
+    if (task && user && ['content_writer', 'graphic_designer', 'ui_ux_designer'].includes(user.role)) {
       fetchPrompts();
     }
   }, [task, user]);
 
-  // Fetch AI frameworks for content writers
+  // Fetch AI frameworks for content writers, graphic designers, and video editors
   useEffect(() => {
-    if (user?.role === 'content_writer') {
+    if (['content_writer', 'graphic_designer'].includes(user?.role)) {
       fetchAIFrameworks();
       fetchSubCategories();
     }
   }, [user]);
 
-  // Fetch subcategories for content writers
+  // Click outside handler for prompt dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (promptDropdownRef.current && !promptDropdownRef.current.contains(event.target)) {
+        setShowPromptDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch subcategories for AI frameworks
   const fetchSubCategories = async () => {
     try {
       const response = await frameworkCategoryService.getFrameworkCategories();
@@ -168,7 +184,8 @@ export default function TaskDetailPage() {
 
       const response = await aiService.generateBrief({
         taskId: task._id,
-        frameworkType: selectedFramework
+        frameworkType: selectedFramework,
+        promptId: selectedPrompt?._id || null
       });
 
       setAiBrief(response.data.contentBrief);
@@ -191,7 +208,8 @@ export default function TaskDetailPage() {
       setGeneratingBrief(true);
 
       const response = await aiService.regenerateBrief(task._id, {
-        frameworkType: selectedFramework
+        frameworkType: selectedFramework,
+        promptId: selectedPrompt?._id || null
       });
 
       setAiBrief(response.data.contentBrief);
@@ -913,8 +931,8 @@ export default function TaskDetailPage() {
             </CardBody>
           </Card>
 
-          {/* AI Content Brief - For Content Writers */}
-          {user?.role === 'content_writer' && task.taskType === 'content_creation' && (
+          {/* AI Content Brief - For Content Writers, Graphic Designers, Video Editors */}
+          {['content_writer', 'graphic_designer'].includes(user?.role) && (
             <Card>
               <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
                 <div className="flex items-center justify-between">
@@ -942,41 +960,227 @@ export default function TaskDetailPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Framework
                   </label>
-                  <div className="flex gap-3">
-                    <select
-                      value={selectedFramework}
-                      onChange={(e) => setSelectedFramework(e.target.value)}
-                      className="flex-1 px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                    >
-                      <option value="">Choose a framework...</option>
-                      {aiFrameworks.map(f => (
-                        <option key={f.value} value={f.value}>{f.label}</option>
-                      ))}
-                    </select>
-                    {!aiBrief ? (
-                      <Button
-                        onClick={handleGenerateAIBrief}
-                        loading={generatingBrief}
-                        disabled={!selectedFramework || generatingBrief}
-                      >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Generate Brief
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        onClick={handleRegenerateBrief}
-                        loading={generatingBrief}
-                        disabled={!selectedFramework || generatingBrief}
-                      >
-                        Regenerate
-                      </Button>
-                    )}
-                  </div>
+                  <select
+                    value={selectedFramework}
+                    onChange={(e) => {
+                      setSelectedFramework(e.target.value);
+                      setSelectedPrompt(null); // Reset prompt when framework changes
+                    }}
+                    disabled
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  >
+                    <option value="">Choose a framework...</option>
+                    {aiFrameworks.map(f => (
+                      <option key={f.value} value={f.value}>{f.label}</option>
+                    ))}
+                  </select>
                   {selectedFramework && (
                     <p className="text-xs text-gray-500 mt-2">
                       {aiFrameworks.find(f => f.value === selectedFramework)?.description}
                     </p>
+                  )}
+                </div>
+
+                {/* Prompt Templates - Show when framework is selected */}
+                {selectedFramework && prompts.length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Prompt Template (Optional)
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Select a specific prompt template or leave unselected to use default framework
+                    </p>
+
+                    {/* Searchable Dropdown */}
+                    <div className="relative" ref={promptDropdownRef}>
+                      <div
+                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 cursor-pointer flex items-center justify-between bg-white"
+                        onClick={() => setShowPromptDropdown(!showPromptDropdown)}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          {selectedPrompt ? (
+                            <>
+                              <CheckCircle className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                              <span className="text-gray-900 truncate">{selectedPrompt.title}</span>
+                              {selectedPrompt.frameworkType && (
+                                <span className="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full flex-shrink-0">
+                                  {selectedPrompt.frameworkType}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-gray-500">Select a prompt template...</span>
+                          )}
+                        </div>
+                        <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${showPromptDropdown ? 'rotate-90' : ''}`} />
+                      </div>
+
+                      {/* Dropdown Menu */}
+                      {showPromptDropdown && (
+                        <div className="absolute z-20 w-full mt-2 bg-white rounded-lg border border-gray-200 shadow-lg max-h-72 overflow-hidden">
+                          {/* Search Input */}
+                          <div className="p-2 border-b border-gray-100">
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={promptSearchTerm}
+                                onChange={(e) => setPromptSearchTerm(e.target.value)}
+                                placeholder="Search templates..."
+                                className="w-full px-3 py-2 pl-9 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                              </svg>
+                            </div>
+                          </div>
+
+                          {/* Clear Selection Option */}
+                          {selectedPrompt && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPrompt(null);
+                                setShowPromptDropdown(false);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-b border-gray-100"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Clear selection (use default framework)
+                            </button>
+                          )}
+
+                          {/* Filtered Prompts List */}
+                          <div className="overflow-y-auto max-h-52">
+                            {prompts
+                              .filter(p => {
+                                const matchesFramework = !p.frameworkType || p.frameworkType === selectedFramework;
+                                const matchesSearch = !promptSearchTerm ||
+                                  p.title.toLowerCase().includes(promptSearchTerm.toLowerCase()) ||
+                                  (p.description && p.description.toLowerCase().includes(promptSearchTerm.toLowerCase()));
+                                return matchesFramework && matchesSearch;
+                              })
+                              .length === 0 ? (
+                              <div className="px-4 py-6 text-center text-gray-500 text-sm">
+                                {promptSearchTerm ? 'No templates match your search' : 'No templates available for this framework'}
+                              </div>
+                            ) : (
+                              prompts
+                                .filter(p => {
+                                  const matchesFramework = !p.frameworkType || p.frameworkType === selectedFramework;
+                                  const matchesSearch = !promptSearchTerm ||
+                                    p.title.toLowerCase().includes(promptSearchTerm.toLowerCase()) ||
+                                    (p.description && p.description.toLowerCase().includes(promptSearchTerm.toLowerCase()));
+                                  return matchesFramework && matchesSearch;
+                                })
+                                .map((prompt) => (
+                                  <button
+                                    key={prompt._id}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedPrompt(prompt);
+                                      setShowPromptDropdown(false);
+                                      setPromptSearchTerm('');
+                                    }}
+                                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0 ${
+                                      selectedPrompt?._id === prompt._id ? 'bg-primary-50' : ''
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-medium text-sm text-gray-900 truncate">{prompt.title}</span>
+                                      {selectedPrompt?._id === prompt._id && (
+                                        <CheckCircle className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                                      )}
+                                    </div>
+                                    {prompt.description && (
+                                      <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">{prompt.description}</div>
+                                    )}
+                                    {prompt.frameworkType && (
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full">
+                                          <Sparkles className="w-3 h-3" />
+                                          {prompt.frameworkType}
+                                          {prompt.subCategory && (
+                                            <span className="text-purple-500">
+                                              → {subCategories.find(c => c.key === prompt.subCategory && c.frameworkType === prompt.frameworkType)?.displayName || prompt.subCategory}
+                                            </span>
+                                          )}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </button>
+                                ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Selected Template Details */}
+                    {selectedPrompt && (
+                      <div className="mt-3 p-4 bg-primary-50 rounded-lg border border-primary-200">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="w-4 h-4 text-primary-600" />
+                              <span className="font-medium text-primary-900">{selectedPrompt.title}</span>
+                            </div>
+                            {selectedPrompt.description && (
+                              <p className="text-sm text-primary-700 mb-2">{selectedPrompt.description}</p>
+                            )}
+                            {selectedPrompt.frameworkType && (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full">
+                                  <Sparkles className="w-3 h-3" />
+                                  Framework: {selectedPrompt.frameworkType}
+                                </span>
+                                {selectedPrompt.subCategory && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full">
+                                    Category: {subCategories.find(c => c.key === selectedPrompt.subCategory && c.frameworkType === selectedPrompt.frameworkType)?.displayName || selectedPrompt.subCategory}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPrompt(null)}
+                            className="text-gray-400 hover:text-gray-600 p-1"
+                            title="Clear selection"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Generate Button */}
+                <div className="mb-6">
+                  {!aiBrief ? (
+                    <Button
+                      className="w-full"
+                      onClick={handleGenerateAIBrief}
+                      loading={generatingBrief}
+                      disabled={!selectedFramework || generatingBrief}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Brief
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={handleRegenerateBrief}
+                      loading={generatingBrief}
+                      disabled={!selectedFramework || generatingBrief}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Regenerate with {selectedPrompt ? 'Selected Template' : 'Framework'}
+                    </Button>
                   )}
                 </div>
 
@@ -1040,19 +1244,20 @@ export default function TaskDetailPage() {
           )}
 
           {/* AI Prompt (for other roles with pre-existing prompt) */}
-          {task.aiPrompt && user?.role !== 'content_writer' && (
-            <Card>
-              <CardHeader>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  AI Creative Brief
-                </h2>
-              </CardHeader>
-              <CardBody className="p-6">
-                <pre className="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {task.aiPrompt}
-                </pre>
-              </CardBody>
-            </Card>
+          {task.aiPrompt && user?.role !== 'content_writer' && user?.role !== 'graphic_designer' && (
+            // <Card>
+            //   <CardHeader>
+            //     <h2 className="text-lg font-semibold text-gray-900">
+            //       AI Creative Brief
+            //     </h2>
+            //   </CardHeader>
+            //   <CardBody className="p-6">
+            //     <pre className="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
+            //       {task.aiPrompt}
+            //     </pre>
+            //   </CardBody>
+            // </Card>
+            <></>
           )}
 
           {/* Creative Reference - For Testers reviewing creatives */}
@@ -1552,212 +1757,214 @@ export default function TaskDetailPage() {
           </Card>
 
           {/* Prompts Sidebar - For content creators */}
-          {['content_writer', 'graphic_designer', 'video_editor', 'ui_ux_designer'].includes(user?.role) && prompts.length > 0 && (
-            <Card>
-              <CardBody className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <PenTool className="w-5 h-5 text-primary-500" />
-                    Prompt Templates
-                  </h3>
-                  <button
-                    onClick={() => setShowPromptsPanel(!showPromptsPanel)}
-                    className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
-                  >
-                    {showPromptsPanel ? 'Hide' : 'View'}
-                    <ChevronRight className={`w-4 h-4 transition-transform ${showPromptsPanel ? 'rotate-90' : ''}`} />
-                  </button>
-                </div>
+          {['content_writer', 'graphic_designer'].includes(user?.role) && prompts.length > 0 && (
+            <></>
+            // <Card>
+            //   <CardBody className="p-6">
+            //     <div className="flex items-center justify-between mb-4">
+            //       <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            //         <PenTool className="w-5 h-5 text-primary-500" />
+            //         Prompt Templates
+            //       </h3>
+            //       <button
+            //         onClick={() => setShowPromptsPanel(!showPromptsPanel)}
+            //         className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+            //       >
+            //         {showPromptsPanel ? 'Hide' : 'View'}
+            //         <ChevronRight className={`w-4 h-4 transition-transform ${showPromptsPanel ? 'rotate-90' : ''}`} />
+            //       </button>
+            //     </div>
 
-                {showPromptsPanel && (
-                  <div className="space-y-3 mt-4">
-                    <p className="text-sm text-gray-500 mb-3">
-                      Select a prompt template to generate an AI-optimized creative brief
-                    </p>
+            //     {showPromptsPanel && (
+            //       <div className="space-y-3 mt-4">
+            //         <p className="text-sm text-gray-500 mb-3">
+            //           Select a prompt template to generate an AI-optimized creative brief
+            //         </p>
 
-                    {promptsLoading ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Spinner size="sm" />
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-96 overflow-y-auto">
-                        {/* Group prompts by framework for content writers */}
-                        {user?.role === 'content_writer' ? (
-                          (() => {
-                            // Group prompts by framework
-                            const groupedByFramework = prompts
-                              .filter(p => p.frameworkType)
-                              .reduce((acc, prompt) => {
-                                const framework = prompt.frameworkType;
-                                if (!acc[framework]) {
-                                  acc[framework] = { prompts: [], subcategories: {} };
-                                }
-                                acc[framework].prompts.push(prompt);
-                                if (prompt.subCategory) {
-                                  if (!acc[framework].subcategories[prompt.subCategory]) {
-                                    acc[framework].subcategories[prompt.subCategory] = [];
-                                  }
-                                  acc[framework].subcategories[prompt.subCategory].push(prompt);
-                                }
-                                return acc;
-                              }, {});
+            //         {promptsLoading ? (
+            //           <div className="flex items-center justify-center py-4">
+            //             <Spinner size="sm" />
+            //           </div>
+            //         ) : (
+            //           <div className="space-y-2 max-h-96 overflow-y-auto">
+            //             {/* Group prompts by framework for content writers */}
+            //             {user?.role === 'content_writer' ? (
+            //               (() => {
+            //                 // Group prompts by framework
+            //                 const groupedByFramework = prompts
+            //                   .filter(p => p.frameworkType)
+            //                   .reduce((acc, prompt) => {
+            //                     const framework = prompt.frameworkType;
+            //                     if (!acc[framework]) {
+            //                       acc[framework] = { prompts: [], subcategories: {} };
+            //                     }
+            //                     acc[framework].prompts.push(prompt);
+            //                     if (prompt.subCategory) {
+            //                       if (!acc[framework].subcategories[prompt.subCategory]) {
+            //                         acc[framework].subcategories[prompt.subCategory] = [];
+            //                       }
+            //                       acc[framework].subcategories[prompt.subCategory].push(prompt);
+            //                     }
+            //                     return acc;
+            //                   }, {});
 
-                            const otherPrompts = prompts.filter(p => !p.frameworkType);
+            //                 const otherPrompts = prompts.filter(p => !p.frameworkType);
 
-                            return (
-                              <>
-                                {Object.entries(groupedByFramework).map(([framework, data]) => {
-                                  const frameworkPrompts = data.prompts;
-                                  const subcategories = data.subcategories;
-                                  const subcategoryKeys = Object.keys(subcategories);
-                                  const uncategorizedPrompts = frameworkPrompts.filter(p => !p.subCategory);
+            //                 return (
+            //                   <>
+            //                     {Object.entries(groupedByFramework).map(([framework, data]) => {
+            //                       const frameworkPrompts = data.prompts;
+            //                       const subcategories = data.subcategories;
+            //                       const subcategoryKeys = Object.keys(subcategories);
+            //                       const uncategorizedPrompts = frameworkPrompts.filter(p => !p.subCategory);
 
-                                  return (
-                                    <div key={framework} className="border border-gray-200 rounded-lg overflow-hidden">
-                                      <div className="bg-purple-50 px-3 py-2 flex items-center gap-2">
-                                        <Sparkles className="w-4 h-4 text-purple-500" />
-                                        <span className="font-medium text-sm text-purple-700">{framework}</span>
-                                        <span className="text-xs text-purple-500">({frameworkPrompts.length})</span>
-                                      </div>
+            //                       return (
+            //                         <div key={framework} className="border border-gray-200 rounded-lg overflow-hidden">
+            //                           <div className="bg-purple-50 px-3 py-2 flex items-center gap-2">
+            //                             <Sparkles className="w-4 h-4 text-purple-500" />
+            //                             <span className="font-medium text-sm text-purple-700">{framework}</span>
+            //                             <span className="text-xs text-purple-500">({frameworkPrompts.length})</span>
+            //                           </div>
 
-                                      {/* Subcategories */}
-                                      {subcategoryKeys.length > 0 && subcategoryKeys.map(subKey => {
-                                        const subPrompts = subcategories[subKey] || [];
-                                        const subDetails = subCategories.find(c => c.key === subKey && c.frameworkType === framework);
+            //                           {/* Subcategories */}
+            //                           {subcategoryKeys.length > 0 && subcategoryKeys.map(subKey => {
+            //                             const subPrompts = subcategories[subKey] || [];
+            //                             const subDetails = subCategories.find(c => c.key === subKey && c.frameworkType === framework);
 
-                                        return (
-                                          <div key={subKey} className="border-t border-gray-200">
-                                            <div className="bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 flex items-center gap-1">
-                                              <span>├</span>
-                                              {subDetails?.displayName || subKey}
-                                              <span className="text-gray-400">({subPrompts.length})</span>
-                                            </div>
-                                            {subPrompts.map((prompt) => (
-                                              <button
-                                                key={prompt._id}
-                                                onClick={() => setSelectedPrompt(prompt)}
-                                                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-all ${
-                                                  selectedPrompt?._id === prompt._id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
-                                                }`}
-                                              >
-                                                <div className="text-gray-700">{prompt.title}</div>
-                                              </button>
-                                            ))}
-                                          </div>
-                                        );
-                                      })}
+            //                             return (
+            //                               <div key={subKey} className="border-t border-gray-200">
+            //                                 <div className="bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 flex items-center gap-1">
+            //                                   <span>├</span>
+            //                                   {subDetails?.displayName || subKey}
+            //                                   <span className="text-gray-400">({subPrompts.length})</span>
+            //                                 </div>
+            //                                 {subPrompts.map((prompt) => (
+            //                                   <button
+            //                                     key={prompt._id}
+            //                                     onClick={() => setSelectedPrompt(prompt)}
+            //                                     className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-all ${
+            //                                       selectedPrompt?._id === prompt._id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
+            //                                     }`}
+            //                                   >
+            //                                     <div className="text-gray-700">{prompt.title}</div>
+            //                                   </button>
+            //                                 ))}
+            //                               </div>
+            //                             );
+            //                           })}
 
-                                      {/* Uncategorized prompts */}
-                                      {uncategorizedPrompts.length > 0 && (
-                                        <div className="border-t border-gray-200">
-                                          {uncategorizedPrompts.map((prompt) => (
-                                            <button
-                                              key={prompt._id}
-                                              onClick={() => setSelectedPrompt(prompt)}
-                                              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-all ${
-                                                selectedPrompt?._id === prompt._id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
-                                              }`}
-                                            >
-                                              <div className="text-gray-700">{prompt.title}</div>
-                                            </button>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
+            //                           {/* Uncategorized prompts */}
+            //                           {uncategorizedPrompts.length > 0 && (
+            //                             <div className="border-t border-gray-200">
+            //                               {uncategorizedPrompts.map((prompt) => (
+            //                                 <button
+            //                                   key={prompt._id}
+            //                                   onClick={() => setSelectedPrompt(prompt)}
+            //                                   className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-all ${
+            //                                     selectedPrompt?._id === prompt._id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
+            //                                   }`}
+            //                                 >
+            //                                   <div className="text-gray-700">{prompt.title}</div>
+            //                                 </button>
+            //                               ))}
+            //                             </div>
+            //                           )}
+            //                         </div>
+            //                       );
+            //                     })}
 
-                                {/* Other prompts without framework */}
-                                {otherPrompts.length > 0 && (
-                                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                                    <div className="bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600">
-                                      Other Prompts
-                                    </div>
-                                    {otherPrompts.map((prompt) => (
-                                      <button
-                                        key={prompt._id}
-                                        onClick={() => setSelectedPrompt(prompt)}
-                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-all border-t border-gray-200 ${
-                                          selectedPrompt?._id === prompt._id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
-                                        }`}
-                                      >
-                                        <div className="text-gray-700">{prompt.title}</div>
-                                        {prompt.category && (
-                                          <span className="text-xs text-gray-500">{prompt.category}</span>
-                                        )}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()
-                        ) : (
-                          // Non-content writers: show simple list
-                          prompts.map((prompt) => (
-                            <button
-                              key={prompt._id}
-                              onClick={() => setSelectedPrompt(prompt)}
-                              className={`w-full text-left p-3 rounded-lg border transition-all ${
-                                selectedPrompt?._id === prompt._id
-                                  ? 'border-primary-500 bg-primary-50'
-                                  : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="font-medium text-sm text-gray-900">{prompt.title}</div>
-                              <div className="flex gap-2 mt-1 flex-wrap">
-                                {!prompt.frameworkType && prompt.category && (
-                                  <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                                    {prompt.category}
-                                  </span>
-                                )}
-                                {prompt.platform && prompt.platform !== 'all' && (
-                                  <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                                    {prompt.platform}
-                                  </span>
-                                )}
-                              </div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
+            //                     {/* Other prompts without framework */}
+            //                     {otherPrompts.length > 0 && (
+            //                       <div className="border border-gray-200 rounded-lg overflow-hidden">
+            //                         <div className="bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600">
+            //                           Other Prompts
+            //                         </div>
+            //                         {otherPrompts.map((prompt) => (
+            //                           <button
+            //                             key={prompt._id}
+            //                             onClick={() => setSelectedPrompt(prompt)}
+            //                             className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-all border-t border-gray-200 ${
+            //                               selectedPrompt?._id === prompt._id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
+            //                             }`}
+            //                           >
+            //                             <div className="text-gray-700">{prompt.title}</div>
+            //                             {prompt.category && (
+            //                               <span className="text-xs text-gray-500">{prompt.category}</span>
+            //                             )}
+            //                           </button>
+            //                         ))}
+            //                       </div>
+            //                     )}
+            //                   </>
+            //                 );
+            //               })()
+            //             ) : (
+            //               // Non-content writers: show simple list
+            //               prompts.map((prompt) => (
+            //                 <button
+            //                   key={prompt._id}
+            //                   onClick={() => setSelectedPrompt(prompt)}
+            //                   className={`w-full text-left p-3 rounded-lg border transition-all ${
+            //                     selectedPrompt?._id === prompt._id
+            //                       ? 'border-primary-500 bg-primary-50'
+            //                       : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+            //                   }`}
+            //                 >
+            //                   <div className="font-medium text-sm text-gray-900">{prompt.title}</div>
+            //                   <div className="flex gap-2 mt-1 flex-wrap">
+            //                     {!prompt.frameworkType && prompt.category && (
+            //                       <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+            //                         {prompt.category}
+            //                       </span>
+            //                     )}
+            //                     {prompt.platform && prompt.platform !== 'all' && (
+            //                       <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+            //                         {prompt.platform}
+            //                       </span>
+            //                     )}
+            //                   </div>
+            //                 </button>
+            //               ))
+            //             )}
+            //           </div>
+            //         )}
 
-                    {selectedPrompt && (
-                      <div className="mt-4 pt-4 border-t">
-                        <div className="bg-gray-50 rounded-lg p-3 mb-3">
-                          <div className="text-xs font-medium text-gray-500 mb-1">Selected Template:</div>
-                          <div className="text-sm text-gray-700">{selectedPrompt.title}</div>
-                          {selectedPrompt.frameworkType && (
-                            <div className="text-xs text-purple-600 mt-1 flex items-center gap-1">
-                              <Sparkles className="w-3 h-3" />
-                              Framework: {selectedPrompt.frameworkType}
-                              {selectedPrompt.subCategory && (
-                                <span className="ml-2 text-indigo-600">
-                                  → {subCategories.find(c => c.key === selectedPrompt.subCategory && c.frameworkType === selectedPrompt.frameworkType)?.displayName || selectedPrompt.subCategory}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {selectedPrompt.description && (
-                            <div className="text-xs text-gray-500 mt-1">{selectedPrompt.description}</div>
-                          )}
-                        </div>
-                        <Button
-                          className="w-full"
-                          onClick={handleGeneratePrompt}
-                          loading={generatingPrompt}
-                          disabled={generatingPrompt}
-                        >
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Generate AI Prompt
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardBody>
-            </Card>
+            //         {selectedPrompt && (
+            //           <div className="mt-4 pt-4 border-t">
+            //             <div className="bg-gray-50 rounded-lg p-3 mb-3">
+            //               <div className="text-xs font-medium text-gray-500 mb-1">Selected Template:</div>
+            //               <div className="text-sm text-gray-700">{selectedPrompt.title}</div>
+            //               {selectedPrompt.frameworkType && (
+            //                 <div className="text-xs text-purple-600 mt-1 flex items-center gap-1">
+            //                   <Sparkles className="w-3 h-3" />
+            //                   Framework: {selectedPrompt.frameworkType}
+            //                   {selectedPrompt.subCategory && (
+            //                     <span className="ml-2 text-indigo-600">
+            //                       → {subCategories.find(c => c.key === selectedPrompt.subCategory && c.frameworkType === selectedPrompt.frameworkType)?.displayName || selectedPrompt.subCategory}
+            //                     </span>
+            //                   )}
+            //                 </div>
+            //               )}
+            //               {selectedPrompt.description && (
+            //                 <div className="text-xs text-gray-500 mt-1">{selectedPrompt.description}</div>
+            //               )}
+            //             </div>
+            //             <Button
+            //               className="w-full"
+            //               onClick={handleGeneratePrompt}
+            //               loading={generatingPrompt}
+            //               disabled={generatingPrompt}
+            //             >
+            //               <Sparkles className="w-4 h-4 mr-2" />
+            //               Generate AI Prompt
+            //             </Button>
+            //           </div>
+            //         )}
+            //       </div>
+            //     )}
+            //   </CardBody>
+            // </Card>
+
           )}
 
           {/* Generated Prompt Modal */}

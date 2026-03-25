@@ -76,10 +76,10 @@ const createEmptyCreative = () => ({
   screenSizes: [],
   assignedRole: '',
   assignedTeamMembers: [],
-  contentWriter: '', // NEW: Content Planner assigned to this creative
-  adIntent: '', // NEW: Ad intent (e.g., "UGC ads, testimonial ads")
-  framework: '', // NEW: Framework for content planner
-  subCategory: '', // NEW: Subcategory for the framework
+  contentWriter: '', // Content Planner assigned to this creative
+  adIntent: '', // Ad intent (e.g., "UGC ads, testimonial ads")
+  aiFramework: '', // AI Framework for content planner
+  aiSubCategory: '', // Subcategory for the framework
   notes: ''
 });
 
@@ -170,10 +170,10 @@ export default function CreativePlanner({
           screenSizes: item.screenSizes || [],
           assignedRole: item.assignedRole || '',
           assignedTeamMembers: item.assignedTeamMembers || [],
-          contentWriter: item.contentWriter || '', // NEW: Load Content Planner
-          adIntent: item.adIntent || '', // NEW: Load ad intent
-          framework: item.framework || '', // NEW: Load framework
-          subCategory: item.subCategory || '', // NEW: Load subcategory
+          contentWriter: item.contentWriter || '', // Content Planner
+          adIntent: item.adIntent || '', // Ad intent
+          aiFramework: item.aiFramework || item.framework || '', // AI Framework (support legacy 'framework')
+          aiSubCategory: item.aiSubCategory || item.subCategory || '', // Subcategory (support legacy 'subCategory')
           notes: item.notes || ''
         }));
         setCreativePlan(migratedPlan);
@@ -235,9 +235,9 @@ export default function CreativePlanner({
           console.log(`Role changed to "${value}", cleared team member selection for manual assignment`);
         }
 
-        // Reset subCategory when framework changes
-        if (field === 'framework') {
-          updatedRow.subCategory = '';
+        // Reset aiSubCategory when aiFramework changes
+        if (field === 'aiFramework') {
+          updatedRow.aiSubCategory = '';
         }
 
         return updatedRow;
@@ -462,10 +462,10 @@ export default function CreativePlanner({
           screenSizes: row.screenSizes || [],
           assignedRole: row.assignedRole || '',
           assignedTeamMembers: row.assignedTeamMembers || [],
-          contentWriter: row.contentWriter || '', // NEW: Include Content Planner
-          adIntent: row.adIntent || '', // NEW: Include ad intent
-          framework: row.framework || '', // NEW: Include framework
-          subCategory: row.subCategory || '', // NEW: Include subcategory
+          contentWriter: row.contentWriter || '', // Content Planner
+          adIntent: row.adIntent || '', // Ad intent
+          aiFramework: row.aiFramework || '', // AI Framework
+          aiSubCategory: row.aiSubCategory || '', // Subcategory
           notes: row.notes || '',
           name: row.name || `Creative ${index + 1}`,
           order: index,
@@ -796,11 +796,11 @@ export default function CreativePlanner({
                       <div>
                         <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
                           <Sparkles className="w-4 h-4 text-purple-500" />
-                          Framework
+                          AI Framework
                         </label>
                         <select
-                          value={row.framework || ''}
-                          onChange={(e) => updateCreativeRow(row._id, 'framework', e.target.value)}
+                          value={row.aiFramework || ''}
+                          onChange={(e) => updateCreativeRow(row._id, 'aiFramework', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
                         >
                           <option value="">Select Framework...</option>
@@ -808,9 +808,9 @@ export default function CreativePlanner({
                             <option key={fw.value} value={fw.value}>{fw.label}</option>
                           ))}
                         </select>
-                        {row.framework && (
+                        {row.aiFramework && (
                           <p className="text-xs text-gray-500 mt-1">
-                            {FRAMEWORK_OPTIONS.find(fw => fw.value === row.framework)?.description}
+                            {FRAMEWORK_OPTIONS.find(fw => fw.value === row.aiFramework)?.description}
                           </p>
                         )}
                       </div>
@@ -819,19 +819,19 @@ export default function CreativePlanner({
                           Subcategory <span className="text-gray-400">(Optional)</span>
                         </label>
                         <select
-                          value={row.subCategory || ''}
-                          onChange={(e) => updateCreativeRow(row._id, 'subCategory', e.target.value)}
+                          value={row.aiSubCategory || ''}
+                          onChange={(e) => updateCreativeRow(row._id, 'aiSubCategory', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
-                          disabled={!row.framework}
+                          disabled={!row.aiFramework}
                         >
                           <option value="">No subcategory (framework-level)</option>
-                          {getSubCategoriesForFramework(row.framework).map(cat => (
+                          {getSubCategoriesForFramework(row.aiFramework).map(cat => (
                             <option key={cat._id} value={cat.key}>
                               {cat.displayName}{cat.isSystem ? ' (Default)' : ''}
                             </option>
                           ))}
                         </select>
-                        {row.framework && getSubCategoriesForFramework(row.framework).length === 0 && (
+                        {row.aiFramework && getSubCategoriesForFramework(row.aiFramework).length === 0 && (
                           <p className="text-xs text-gray-400 mt-1">
                             No subcategories available for this framework
                           </p>

@@ -707,10 +707,21 @@ export default function PromptsPage() {
 
   const onSubmit = async (data) => {
     try {
+      // Ensure frameworkType is a string, not an array
+      let frameworkTypeValue = data.frameworkType;
+      if (Array.isArray(frameworkTypeValue)) {
+        // If somehow an array was passed, take the first value
+        frameworkTypeValue = frameworkTypeValue[0] || '';
+      }
+      // Ensure it's a string
+      if (frameworkTypeValue) {
+        frameworkTypeValue = String(frameworkTypeValue).trim();
+      }
+
       const formattedData = {
         title: data.title,
         role: data.role,
-        frameworkType: data.role === 'content_writer' ? data.frameworkType : undefined,
+        frameworkType: data.role === 'content_writer' ? frameworkTypeValue : undefined,
         content: data.content,
         category: data.role === 'content_writer' ? undefined : (data.category || 'general'),
         platform: data.role === 'content_writer' ? undefined : (data.platform || 'all'),
